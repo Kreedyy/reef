@@ -1,5 +1,5 @@
 # Reef
-Reef is an extensible, customizable and extremely lightweight TUI music player
+Reef is an extensible, customizable and extremely lightweight TUI mpd client
 built in C that follows the [suckless philosophy](https://suckless.org/philosophy/), with some minor sensible adjustments.
 
 This project has no "versions", each commit is a
