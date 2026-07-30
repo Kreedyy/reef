@@ -1,0 +1,6 @@
+*.o
+*.d
+config.h
+config.local.mk
+reef
+build.log
