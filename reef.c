@@ -17,6 +17,10 @@
 #include "http.h"
 #endif
 
+#ifdef PATCH_remote
+#include "remote.h"
+#endif
+
 #define TICK_MS 250
 
 #define RECONNECT_MS 200
@@ -67,7 +71,11 @@ main(int argc, char *argv[]) {
 
   if (argc > 1 && (strcmp(argv[1], "-v") == 0 ||
     strcmp(argv[1], "--version") == 0)) {
-    printf("reef %s\n", VERSION);
+#ifdef PATCH_remote
+    if (remote_print_version())
+      return 0;
+#endif
+    printf("reef %s  remote: false\n", VERSION);
     return 0;
   }
 

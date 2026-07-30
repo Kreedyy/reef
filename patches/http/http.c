@@ -2,6 +2,7 @@
 #include <poll.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/select.h>
 
 #include "http.h"
@@ -11,37 +12,67 @@ typedef struct Request {
   char *data;
   size_t len;
   size_t cap;
+  char *hdr;
+  size_t hlen;
+  size_t hcap;
+  bool hmid;
   struct curl_slist *headers;
   HttpCallback cb;
   void *user;
   struct Request *next;
 } Request;
 
+#define MAX_BODY (8u * 1024 * 1024) /* 8MB */
+#define MAX_HEAD (64u * 1024) /* 64KB */
+
 static CURLM *multi;
 static Request *inflight;
 static int active;
 static CURL *escaper;
+static bool shutting_down;
+
+static bool
+buf_append(char **data, size_t *len, size_t *cap, size_t max,
+           const char *ptr, size_t add) {
+  /* written as a subtraction so a huge add cannot wrap the sum */
+  if (*len > max || add > max - *len)
+    return false;
+
+  if (*len + add + 1 > *cap) {
+    size_t want = *cap ? *cap : 4096;
+    char *grown;
+
+    while (want < *len + add + 1)
+      want *= 2;
+    grown = realloc(*data, want);
+    if (grown == NULL)
+      return false;
+    *data = grown;
+    *cap = want;
+  }
+  memcpy(*data + *len, ptr, add);
+  *len += add;
+  (*data)[*len] = '\0';
+  return true;
+}
 
 static size_t
 sink(char *ptr, size_t size, size_t nmemb, void *ud) {
   Request *r = ud;
   size_t add = size * nmemb;
-  if (r->len + add + 1 > r->cap) {
-    size_t cap = r->cap ? r->cap : 4096;
-    char *grown;
 
-    while (cap < r->len + add + 1)
-      cap *= 2;
-    grown = realloc(r->data, cap);
-    if (grown == NULL)
-      return 0;
-    r->data = grown;
-    r->cap = cap;
-  }
-  memcpy(r->data + r->len, ptr, add);
-  r->len += add;
-  r->data[r->len] = '\0';
-  return add;
+  return buf_append(&r->data, &r->len, &r->cap, MAX_BODY, ptr, add) ? add : 0;
+}
+
+static size_t
+head_sink(char *ptr, size_t size, size_t nmemb, void *ud) {
+  Request *r = ud;
+  size_t add = size * nmemb;
+
+  if (!r->hmid && add >= 5 && memcmp(ptr, "HTTP/", 5) == 0)
+    r->hlen = 0;
+  r->hmid = !(add <= 2 && (add == 0 || *ptr == '\r' || *ptr == '\n'));
+  return buf_append(&r->hdr, &r->hlen, &r->hcap, MAX_HEAD, ptr, add) ? add : 0;
 }
 
 void
@@ -62,6 +93,9 @@ new_request(const char *url, HttpCallback cb, void *user) {
   if (multi == NULL)
     return NULL;
 
+  if (shutting_down)
+    return NULL;
+
   r = calloc(1, sizeof(*r));
   if (r == NULL)
     return NULL;
@@ -76,8 +110,11 @@ new_request(const char *url, HttpCallback cb, void *user) {
   curl_easy_setopt(r->easy, CURLOPT_URL, url);
   curl_easy_setopt(r->easy, CURLOPT_WRITEFUNCTION, sink);
   curl_easy_setopt(r->easy, CURLOPT_WRITEDATA, r);
+  curl_easy_setopt(r->easy, CURLOPT_HEADERFUNCTION, head_sink);
+  curl_easy_setopt(r->easy, CURLOPT_HEADERDATA, r);
   curl_easy_setopt(r->easy, CURLOPT_PRIVATE, r);
   curl_easy_setopt(r->easy, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(r->easy, CURLOPT_ACCEPT_ENCODING, "");
   curl_easy_setopt(r->easy, CURLOPT_TIMEOUT, 15L);
   curl_easy_setopt(r->easy, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(r->easy, CURLOPT_USERAGENT, "reef");
@@ -175,6 +212,7 @@ finish(Request *r, bool ok) {
     resp.status = status;
     resp.data = r->data != NULL ? r->data : "";
     resp.len = r->len;
+    resp.headers = r->hdr != NULL ? r->hdr : "";
     r->cb(&resp, r->user);
   }
 
@@ -183,6 +221,7 @@ finish(Request *r, bool ok) {
   curl_slist_free_all(r->headers);
   unlink_request(r);
   free(r->data);
+  free(r->hdr);
   free(r);
 }
 
@@ -262,6 +301,40 @@ http_tune_timeout(int timeout_ms) {
   return timeout_ms < want ? timeout_ms : want;
 }
 
+bool
+http_header(const HttpResponse *resp, const char *name, char *out, size_t n) {
+  size_t nl = strlen(name);
+  const char *p;
+
+  if (resp->headers == NULL || n == 0)
+    return false;
+
+  for (p = resp->headers; *p != '\0'; p++) {
+    const char *v, *e;
+    size_t len;
+
+    /* a name only counts at the start of a line */
+    if (p != resp->headers && p[-1] != '\n')
+      continue;
+    if (strncasecmp(p, name, nl) != 0 || p[nl] != ':')
+      continue;
+
+    v = p + nl + 1;
+    v += strspn(v, " \t");
+    e = v + strcspn(v, "\r\n");
+    while (e > v && (e[-1] == ' ' || e[-1] == '\t'))
+      e--;
+
+    len = (size_t)(e - v);
+    if (len > n - 1)
+      len = n - 1;
+    memcpy(out, v, len);
+    out[len] = '\0';
+    return true;
+  }
+  return false;
+}
+
 char *
 http_escape(const char *s) {
   if (escaper == NULL || s == NULL)
@@ -277,19 +350,46 @@ http_escape_free(char *s) {
 
 void
 http_cleanup(void) {
+  Request *pending;
+
   if (multi == NULL)
     return;
-  while (inflight != NULL) {
-    Request *r = inflight;
 
-    inflight = r->next;
+  /* take the list before firing anything, so a callback that tries to queue
+   * more work cannot grow the list being walked. new_request() refuses for
+   * the same reason while this is set */
+  shutting_down = true;
+  pending = inflight;
+  inflight = NULL;
+
+  while (pending != NULL) {
+    Request *r = pending;
+
+    pending = r->next;
+
+    /* http_get() promised the callback fires exactly once. Abandoning it
+     * here would strand whatever the caller hung off user, so it still runs,
+     * just with ok false and whatever arrived so far */
+    if (r->cb != NULL) {
+      HttpResponse resp;
+
+      resp.ok = false;
+      resp.status = 0;
+      resp.data = r->data != NULL ? r->data : "";
+      resp.len = r->len;
+      resp.headers = r->hdr != NULL ? r->hdr : "";
+      r->cb(&resp, r->user);
+    }
+
     curl_multi_remove_handle(multi, r->easy);
     curl_easy_cleanup(r->easy);
     curl_slist_free_all(r->headers);
     free(r->data);
+    free(r->hdr);
     free(r);
   }
-  active = false;
+
+  active = 0;
   if (escaper != NULL) {
     curl_easy_cleanup(escaper);
     escaper = NULL;
@@ -297,4 +397,5 @@ http_cleanup(void) {
   curl_multi_cleanup(multi);
   multi = NULL;
   curl_global_cleanup();
+  shutting_down = false;
 }

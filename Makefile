@@ -25,7 +25,14 @@ all: reef
 reef: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LDFLAGS) $(LDLIBS)
 
-$(OBJ): config.h config.mk config.local.mk
+$(OBJ): config.h config.mk config.local.mk .stamp
+
+.stamp: FORCE
+	@printf '%s\n' "$(STAMP)" > $@.tmp
+	@cmp -s $@.tmp $@ 2>/dev/null && rm -f $@.tmp || mv -f $@.tmp $@
+
+FORCE:
+
 
 config.h:
 	cp config.def.h $@
@@ -33,10 +40,10 @@ config.h:
 config.local.mk:
 	@printf '%s\n' \
 		'# Enable patches by name here, matching the directory under patches/' \
-		'#PATCHES = lrclib ' > $@
+		'PATCHES = remote ' > $@
 
 clean:
-	rm -f reef $(OBJ) $(DEP) patches/*/*.o patches/*/*.d
+	rm -f reef $(OBJ) $(DEP) patches/*/*.o patches/*/*.d .stamp .stamp.tmp
 
 install: all
 	mkdir -p $(PREFIX)/bin
@@ -50,6 +57,6 @@ uninstall:
 .c.o:
 	$(CC) -c $(REEFCFLAGS) -o $@ $<
 
-.PHONY: all clean install uninstall
+.PHONY: all clean install uninstall FORCE
 
 -include $(DEP)

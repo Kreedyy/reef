@@ -1086,14 +1086,14 @@ draw_song_row(WINDOW *win, int row, const Columns *c, const Song *song,
     wattr_on(win, A_UNDERLINE, NULL);
 
   if (selected) {
-    wattr_on(win, A_REVERSE, NULL);
+    style_on(win, STYLE_ACTIVE);
     draw_text(win, row, c->artist_x, c->artist_w, song->artist);
     draw_text(win, row, c->track_x, c->track_w, song->title);
     if (c->album_w > 0)
       draw_text(win, row, c->album_x, c->album_w,
                 song->album);
     draw_text(win, row, c->time_x, c->time_w, time_buf);
-    wattr_off(win, A_REVERSE, NULL);
+    style_off(win, STYLE_ACTIVE);
   } else if (current) {
     style_on(win, STYLE_HIGHLIGHT);
     draw_text(win, row, c->artist_x, c->artist_w, song->artist);
@@ -1108,7 +1108,9 @@ draw_song_row(WINDOW *win, int row, const Columns *c, const Song *song,
     draw_text(win, row, c->artist_x, c->artist_w, song->artist);
     style_off(win, STYLE_ARTIST);
 
+    style_on(win, STYLE_TRACK);
     draw_text(win, row, c->track_x, c->track_w, song->title);
+    style_off(win, STYLE_TRACK);
 
     style_on(win, STYLE_ALBUM);
     if (c->album_w > 0)
@@ -1476,7 +1478,7 @@ scroll_offset(int cursor, int offset, int count, int visible) {
 
 static void
 browser_row(WINDOW *win, int row, int x, int w, const char *text, int slot,
-            bool selected, bool focused, bool marked, bool secondary) {
+            bool selected, bool marked, bool secondary) {
   int tw;
 
   if (w <= 0)
@@ -1489,11 +1491,9 @@ browser_row(WINDOW *win, int row, int x, int w, const char *text, int slot,
     draw_text(win, row, x + 1, tw, text);
     style_off(win, STYLE_HIGHLIGHT);
   } else if (selected) {
-    attr_t attr = A_REVERSE | (focused ? 0 : A_DIM);
-
-    wattr_on(win, attr, NULL);
+    style_on(win, STYLE_ACTIVE);
     draw_text(win, row, x + 1, tw, text);
-    wattr_off(win, attr, NULL);
+    style_off(win, STYLE_ACTIVE);
   } else {
     style_on(win, slot);
     draw_text(win, row, x + 1, tw, text);
@@ -1536,7 +1536,7 @@ draw_browser_left(WINDOW *win, int x, int w, int height) {
     }
 
     here = i == sel;
-    browser_row(win, r, x, w, buf, slot, here, 0, 0, here);
+    browser_row(win, r, x, w, buf, slot, here, 0, here);
   }
 }
 
@@ -1572,7 +1572,7 @@ draw_browser_mid(WINDOW *win, int x, int w, int height) {
 
     sel = i == browser.view.cursor;
     marked = browser.view.marked != NULL && browser.view.marked[i];
-    browser_row(win, r, x, w, buf, slot, sel, 1, marked, 0);
+    browser_row(win, r, x, w, buf, slot, sel, marked, 0);
   }
 }
 
@@ -1612,7 +1612,7 @@ draw_browser_preview_list(WINDOW *win, int *row, int x, int w, int height,
   }
   for (i = 0; i < songs->count && *row < height; i++) {
     const Song *s = &songs->items[i];
-    char buf[600];
+    char buf[514];
 
     snprintf(buf, sizeof(buf), "S %s",
              s->title[0] ? s->title : s->uri);
@@ -1693,10 +1693,10 @@ draw_browse(WINDOW *win) {
   right_div = info_x - 1;
   mid_w = right_div - mid_x;
 
-  style_on(win, STYLE_BORDER);
+  style_on(win, STYLE_BORDER_FOCUSED);
   mvwvline(win, 0, left_w, 0, height);
   mvwvline(win, 0, right_div, 0, height);
-  style_off(win, STYLE_BORDER);
+  style_off(win, STYLE_BORDER_FOCUSED);
 
   draw_browser_left(win, 0, left_w, height);
   draw_browser_mid(win, mid_x, mid_w, height);
@@ -1724,8 +1724,8 @@ enum {
 #define SF_TEXT_COUNT SF_MODE
 
 static const char *search_labels[SF_COUNT] = {
-  "Any Tag",  "Artist", "Album",       "Album Artist", "Title",
-  "Filename", "Genre",  "Search mode", "Reset",
+  "Any Tag", "Artist", "Album", "Album Artist", "Title",
+  "Filename", "Genre", "Search mode", "Reset",
 };
 
 static struct {
@@ -1814,14 +1814,13 @@ draw_search_form(WINDOW *win, int x, int w, int height) {
 
     sel = i == search.cursor;
     if (sel) {
-      attr_t attr =
-        A_REVERSE | (search.focus == 0 ? 0 : A_DIM);
-
-      wattr_on(win, attr, NULL);
+      style_on(win, STYLE_ACTIVE);
       draw_text(win, row, x + 1, w - 2, line);
-      wattr_off(win, attr, NULL);
+      style_off(win, STYLE_ACTIVE);
     } else {
+      style_on(win, STYLE_DEFAULT);
       draw_text(win, row, x + 1, w - 2, line);
+      style_off(win, STYLE_DEFAULT);
     }
   }
 }
@@ -1838,7 +1837,7 @@ draw_search_results(WINDOW *win, int x, int w, int height) {
   for (r = 0; r < height; r++) {
     int i = search.view.offset + r;
     const Song *s;
-    char buf[600];
+    char buf[261]; /* suppress warning with <261 */
     bool sel, marked;
 
     if (i >= n)
@@ -1852,8 +1851,7 @@ draw_search_results(WINDOW *win, int x, int w, int height) {
 
     sel = search.focus == 1 && i == search.view.cursor;
     marked = search.view.marked != NULL && search.view.marked[i];
-    browser_row(win, r, x, w, buf, STYLE_DEFAULT, sel,
-                search.focus == 1, marked, 0);
+    browser_row(win, r, x, w, buf, STYLE_DEFAULT, sel, marked, 0);
   }
 }
 
@@ -1874,9 +1872,9 @@ draw_search(WINDOW *win) {
     return;
   }
 
-  style_on(win, STYLE_BORDER);
+  style_on(win, STYLE_BORDER_FOCUSED);
   mvwvline(win, 0, form_w, 0, height);
-  style_off(win, STYLE_BORDER);
+  style_off(win, STYLE_BORDER_FOCUSED);
 
   draw_search_form(win, 0, form_w, height);
   draw_search_results(win, res_x, res_w, height);

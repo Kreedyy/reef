@@ -3,13 +3,18 @@ Reef is an extensible, customizable and extremely lightweight TUI mpd client
 built in C that follows the [suckless philosophy](https://suckless.org/philosophy/), with some minor sensible adjustments.
 
 This project has no "versions", each commit is a
-version you use to help pinpoint issues.  
+version you use to help pinpoint issues.
+
+By default the [`remote`](patches/remote) patch is added to track the remote origin commit history,
+without the patch reef will track the local origin commit history meaning you
+will have to manually pull in remote changes to see if you are on the latest version.
+
 Append `-v` or `--version` to see which origin commit you built off of.
 
 Reading your version:
 ```
-     local commit          origin commit         n commits ahead/behind
-reef local: a1c3c6a-dirty  origin: main@ac04e6b  +n/-n
+     local commit          origin commit         ahead/behind  tracking remote?
+reef local: a1c3c6a-dirty  origin: main@ac04e6b  +n/-n         remote: true
 ```
 `-dirty` means the tree had uncommitted changes when you built.  
 The origin
@@ -27,6 +32,7 @@ Base Dependencies:
 `ncurses`  
 `libmpdclient`  
 `libutf8proc`  
+`libcurl`  
 
 First build run:  
 `make`

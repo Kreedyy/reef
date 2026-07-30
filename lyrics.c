@@ -449,12 +449,12 @@ compute_block(int width) {
 
 static void
 draw_line(WINDOW *win, int row, int width, int idx, int cur) {
-  attr_t attr;
+  int slot; 
   int line_width, col;
 
   if (row < 0)
     return;
-  attr = synced ? (idx == cur ? A_REVERSE : A_NORMAL) : 0;
+  slot = synced ? (idx == cur ? STYLE_ACTIVE : STYLE_DEFAULT) : STYLE_DEFAULT;
 
   line_width = text_width(lines[idx].text);
   switch (lyrics_align) {
@@ -472,11 +472,9 @@ draw_line(WINDOW *win, int row, int width, int idx, int cur) {
   if (col < 0)
     col = 0;
 
-  if (attr != 0)
-    wattron(win, attr);
+  style_on(win, slot);
   draw_text(win, row, col, width - col, lines[idx].text);
-  if (attr != 0)
-    wattroff(win, attr);
+  style_off(win, slot);
 }
 
 void
@@ -495,7 +493,9 @@ draw_lyrics(WINDOW *win) {
       : status == LYRICS_NONE ? "No lyrics found"
       : "No song playing";
 
+    style_on(win, STYLE_DEFAULT);
     draw_text_centered(win, height / 2, 0, width, msg);
+    style_off(win, STYLE_DEFAULT);
     return;
   }
 

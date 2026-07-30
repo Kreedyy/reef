@@ -82,6 +82,16 @@ void fetch(const char *title) {
 The UI never blocks on the network, `fetch()` returns while the transfer is
 still in flight. Pass `NULL` as `user` if the callback doesn't need context.
 
+Response headers come back on the same struct. `http_header()` looks one up by
+name, case insensitively, and trims the value:
+
+```c
+char total[16];
+
+if (!http_header(r, "x-total-count", total, sizeof(total)))
+  return;
+```
+
 When a server wants an auth token or some other header, pass an array of
 `"Key: Value"` strings ending in `NULL`:
 
