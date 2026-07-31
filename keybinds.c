@@ -96,7 +96,7 @@ void
 handle_key(int input) {
   Keybind *kb;
 
-/* patches that have things which need control over the input
+  /* patches that have things which need control over the input
  * can insert themselves here in a similar way to navigation in ui.c
  *
  * #ifdef PATCH_example

@@ -107,7 +107,7 @@ remote_print_version(void) {
     return false;
 
   if (!http_get(API "/repos/" REPO "/commits?sha=" REMOTE_BRANCH
-    "&limit=1&stat=false&files=false", NULL, on_commits, &res))
+                "&limit=1&stat=false&files=false", NULL, on_commits, &res))
     return false;
 
   deadline = now_ms() + TIMEOUT_MS;
@@ -130,6 +130,6 @@ remote_print_version(void) {
     return false;
 
   printf("reef local: %s  origin: %s@%s  +%s/-%d  remote: true\n",
-    REMOTE_LOCAL, REMOTE_BRANCH, res.tip, REMOTE_AHEAD, res.behind);
+         REMOTE_LOCAL, REMOTE_BRANCH, res.tip, REMOTE_AHEAD, res.behind);
   return true;
 }
