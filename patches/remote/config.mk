@@ -10,8 +10,6 @@ PATCHDEFS += -DPATCH_remote \
 	-DREMOTE_BASECOUNT="\"$(BASECOUNT)\"" \
 	-DREMOTE_BRANCH="\"$(BRANCH)\""
 
-STAMP += $(LOCAL)$(AHEAD)$(BASECOUNT)
-
 SRC  += patches/remote/remote.c
 INCS += -Ipatches/remote
 

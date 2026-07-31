@@ -2,6 +2,10 @@
 
 include config.mk
 
+-include version.mk
+
+VERSION ?= unknown
+
 
 SRC = reef.c mpd.c ui.c keybinds.c lyrics.c
 OBJ = $(SRC:.c=.o)
@@ -25,11 +29,33 @@ all: reef
 reef: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LDFLAGS) $(LDLIBS)
 
-$(OBJ): config.h config.mk config.local.mk .stamp
+$(OBJ): config.h config.mk config.local.mk version.mk
 
-.stamp: FORCE
-	@printf '%s\n' "$(STAMP)" > $@.tmp
-	@cmp -s $@.tmp $@ 2>/dev/null && rm -f $@.tmp || mv -f $@.tmp $@
+GIT = git -c safe.directory="$(CURDIR)"
+
+version.mk: FORCE
+	@u='$(ORIGIN)'; d=; a=; c=; v=unknown; \
+	h=$$($(GIT) rev-parse --short HEAD 2>/dev/null); \
+	if [ -n "$$h" ]; then \
+		$(GIT) diff --quiet 2>/dev/null || d=-dirty; \
+		b=$$($(GIT) merge-base HEAD "$$u" 2>/dev/null); \
+		if [ -n "$$b" ] && set -- $$($(GIT) rev-list --left-right --count \
+			HEAD..."$$u" 2>/dev/null) && [ $$# -eq 2 ]; then \
+			a=$$1; c=$$($(GIT) rev-list --count "$$b" 2>/dev/null); \
+			v="local: $$h$$d  origin: $${u#*/}@$$($(GIT) rev-parse --short "$$b")  +$$1/-$$2"; \
+		else \
+			v=$$($(GIT) describe --tags --always --dirty 2>/dev/null); \
+			[ -n "$$v" ] || v=$$h$$d; \
+		fi; \
+	elif [ -f $@ ]; then \
+		exit 0; \
+	fi; \
+	printf '%s\n' \
+		"VERSION = $$v" \
+		"LOCAL = $$h$$d" \
+		"AHEAD = $$a" \
+		"BASECOUNT = $$c" > $@.tmp; \
+	cmp -s $@.tmp $@ 2>/dev/null && rm -f $@.tmp || mv -f $@.tmp $@
 
 FORCE:
 
@@ -43,7 +69,7 @@ config.local.mk:
 		'PATCHES = remote ' > $@
 
 clean:
-	rm -f reef $(OBJ) $(DEP) patches/*/*.o patches/*/*.d .stamp .stamp.tmp
+	rm -f reef $(OBJ) $(DEP) patches/*/*.o patches/*/*.d version.mk version.mk.tmp
 
 install: all
 	mkdir -p $(PREFIX)/bin
