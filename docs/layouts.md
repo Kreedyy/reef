@@ -237,6 +237,7 @@ REDRAW_DATABASE -> database updated
 REDRAW_MIXER    -> volume changed  
 REDRAW_TICK     -> elapsed time advanced (every 250ms)  
 REDRAW_FOCUS    -> focused tab changed  
+REDRAW_KEYPRESS -> user pressed a key  
 
 Some are tied to what mpd reports back from the idle thread, others from user
 input.  

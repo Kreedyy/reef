@@ -6,6 +6,11 @@
 #include "mpd.h"
 #include "ui.h"
 
+#ifdef PATCH_lrclib
+#include "lrclib.h"
+#endif
+
+
 #define TABLE_BITS 7
 #define TABLE_SIZE (1u << TABLE_BITS)
 #define LENGTH(X) (sizeof(X) / sizeof((X)[0]))
@@ -109,16 +114,30 @@ handle_key(int input) {
  * #endif
  */
 
+#ifdef PATCH_lrclib
+  if (lrclib_sync_active()) {
+    if (input == 'i') {
+      lrclib_handle_input(input);
+      update_panels();
+      doupdate();
+      ui_redraw(REDRAW_KEYPRESS);
+      return;
+    }
+  }
+#endif
+
   if (search_edit_active()) {
     search_edit_key(input);
     update_panels();
     doupdate();
+    ui_redraw(REDRAW_KEYPRESS);
     return;
   }
   if (find_active()) {
     find_input(input);
     update_panels();
     doupdate();
+    ui_redraw(REDRAW_KEYPRESS);
     return;
   }
 
@@ -129,4 +148,5 @@ handle_key(int input) {
     focus_tab_by_key(input);
   update_panels();
   doupdate();
+  ui_redraw(REDRAW_KEYPRESS);
 }

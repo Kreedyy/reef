@@ -6,4 +6,5 @@ typedef union {
   float f;
   const char *s;
   const void *v;
+  bool b;
 } Arg;

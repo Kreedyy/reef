@@ -956,6 +956,8 @@ key_label(int key) {
       return "Ins";
     case KEY_BTAB:
       return "S-Tab";
+    case 27:
+      return "Esc";
   }
   if (key > ' ' && key < 0x7f) {
     buf[0] = (char)key;

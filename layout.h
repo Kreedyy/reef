@@ -31,6 +31,7 @@ enum {
   REDRAW_MIXER = 1 << 3,    /* volume changed */
   REDRAW_TICK = 1 << 4,     /* elapsed time advanced */
   REDRAW_FOCUS = 1 << 5,    /* the focused tab changed */
+  REDRAW_KEYPRESS = 1 << 6, /* user pressed a key */
 };
 
 #define REDRAW_ALL (~0u)

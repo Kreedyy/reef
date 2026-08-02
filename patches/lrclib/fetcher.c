@@ -182,10 +182,8 @@ on_result(const HttpResponse *resp, void *user) {
   if (resp->ok && resp->status == 200 && resp->len > 0) {
     result = malloc(resp->len + 1);
     if (result != NULL &&
-      (find_lyrics(resp->data, req, "syncedLyrics", result,
-                   resp->len + 1) ||
-      find_lyrics(resp->data, req, "plainLyrics", result,
-                  resp->len + 1)))
+      (find_lyrics(resp->data, req, "syncedLyrics", result, resp->len + 1) ||
+      find_lyrics(resp->data, req, "plainLyrics", result, resp->len + 1)))
       text = result;
   }
 
@@ -218,8 +216,7 @@ lrclib_provider(const char *artist, const char *title) {
     return;
   }
 
-  snprintf(url, sizeof(url), "https://lrclib.net/api/search?q=%s+%s", a,
-           t);
+  snprintf(url, sizeof(url), "https://lrclib.net/api/search?q=%s+%s", a, t);
   http_escape_free(a);
   http_escape_free(t);
 
@@ -228,3 +225,5 @@ lrclib_provider(const char *artist, const char *title) {
     lyrics_set(artist, title, NULL);
   }
 }
+
+

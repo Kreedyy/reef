@@ -14,12 +14,20 @@
 #include "example.h"
 #endif
 
+#ifdef PATCH_lrclib
+#include "lrclib.h"
+#endif
+
 static const Pane tabs[] = {
   /* name     draw              redraw on */
   { "Queue",  draw_now_playing, REDRAW_PLAYER | REDRAW_QUEUE },
-  { "Browse", draw_browse,      REDRAW_DATABASE },
-  { "Lyrics", draw_lyrics,      REDRAW_PLAYER | REDRAW_TICK },
+  { "Browse", draw_browse,      REDRAW_DATABASE },  
   { "Search", draw_search,      REDRAW_DATABASE },
+  { "Lyrics", draw_lyrics,      REDRAW_PLAYER | REDRAW_TICK },
+
+#ifdef PATCH_lrclib
+  LRCLIB_TABS
+#endif
 
 #ifdef PATCH_example
   EXAMPLE_TABS
@@ -86,6 +94,11 @@ static const int delta_volume = 5;
  * options: reef.h, ncmpcpp.h, rmpc.h */
 #include "themes/reef.h"
 
+
+/* https://samuallb.github.io/ncurses/NCurses/Key.html */
+
+#define KEY_TAB '\t'
+
 static const Keybind keybinds[] = {
   /* key       function         argument */
 
@@ -120,7 +133,7 @@ static const Keybind keybinds[] = {
   { KEY_HOME,  cursor_edge,     { .i = -1 } }, /* go to top */
   { KEY_END,   cursor_edge,     { .i = 1 } },  /* go to bottom */
 
-  { '\t',      cycle_tab,       { .i = 1 } },  /* next tab */
+  { KEY_TAB,   cycle_tab,       { .i = 1 } },  /* next tab */
   { KEY_BTAB,  cycle_tab,       { .i = -1 } }, /* previous tab */
 
   /* Actions */
@@ -139,7 +152,7 @@ static const Keybind keybinds[] = {
   { 'N',       find_prev,       {0} }, /* go to previous result */
 
   /* Library */
-  { 'u',       update_database, {0} }, /* update database */
+  { 'U',       update_database, {0} }, /* update database */
 
   { 'q',       quit,            {0} }, /* quit */
 };
