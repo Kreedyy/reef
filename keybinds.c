@@ -178,12 +178,12 @@ handle_key(int input) {
  */
 
 #ifdef PATCH_lrclib
-  if (lrclib_sync_active()) {
-    if (input == key_for_action_b(lrclib_set_insert_mode, false))
+  if (lrclib_sync_active() && lrclib_insert_mode_active()) {
+    int exit_key = key_for_action_b(lrclib_set_insert_mode, false);
+
+    if (exit_key >= 0 && input == exit_key)
       lrclib_set_insert_mode(&(Arg){ .b = false });
-    else if (input == key_for_action_b(lrclib_set_insert_mode, true))
-      lrclib_set_insert_mode(&(Arg){ .b = true });
-    if (lrclib_insert_mode_active())
+    else
       lrclib_handle_input(input);
     update_panels();
     doupdate();
