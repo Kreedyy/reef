@@ -21,6 +21,7 @@ typedef struct {
 
 int key_for_action(void (*action)(const Arg *arg));
 int key_for_action_i(void (*action)(const Arg *arg), int i);
+int key_for_action_b(void (*action)(const Arg *arg), bool b);
 
 void cycle_tab(const Arg *arg);
 
