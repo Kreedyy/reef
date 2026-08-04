@@ -17,6 +17,10 @@
 #include "http.h"
 #endif
 
+#ifdef PATCH_lrclib
+#include "lrclib.h"
+#endif
+
 #ifdef PATCH_remote
 #include "remote.h"
 #endif
@@ -28,6 +32,9 @@
 enum {
   POLL_STDIN,
   POLL_MPD,
+#ifdef PATCH_lrclib
+  POLL_LRCLIB, /* the publish challenge solver, idle unless it is searching */
+#endif
   POLL_COUNT
 };
 
@@ -95,6 +102,10 @@ main(int argc, char *argv[]) {
 
   while (running) {
     fds[POLL_MPD].fd = mpd_idle_fd();
+#ifdef PATCH_lrclib
+    fds[POLL_LRCLIB].fd = lrclib_solve_fd();
+    fds[POLL_LRCLIB].events = POLLIN;
+#endif
 
     if (!mpd_connected())
       timeout = RECONNECT_MS;
@@ -137,6 +148,10 @@ main(int argc, char *argv[]) {
     http_pump();
 #endif
 
+#ifdef PATCH_lrclib
+    lrclib_solve_pump();
+#endif
+
     while (running && (ch = getch()) != ERR) {
       switch (ch) {
         case KEY_RESIZE:
@@ -148,6 +163,10 @@ main(int argc, char *argv[]) {
       }
     }
   }
+
+#ifdef PATCH_lrclib
+  lrclib_solve_cancel();
+#endif
 
 #ifdef PATCH_http
   http_cleanup();

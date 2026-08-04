@@ -1,10 +1,14 @@
 # Description
+
 Lrclib lyrics provider:  
-When no local .lrc file is found for the current song, this patch will try to fetch
-the lyrics from [lrclib.net](https://lrclib.net) and display those if any were found then store them locally.
+When no local .lrc file is found for the current song, this patch will try to fetch  
+the lyrics from [lrclib](https://lrclib.net) and display those if any were found then store them locally.
+
+This patch also adds a new tab to write and sync lyrics to then save and publish on [lrclib](https://lrclib.net).
 
 # Dependencies
 
+- libcrypto
 - [http](../http)
 - [json](../json)
 

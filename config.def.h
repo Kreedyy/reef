@@ -165,6 +165,10 @@ static const Keybind keybinds[] = {
  * modify said patch's header file */
 static const TabKeybind tab_keybinds[] = {
 
+#ifdef PATCH_lrclib
+  LRCLIB_KEYBINDS
+#endif
+
 #ifdef PATCH_example
   EXAMPLE_KEYBINDS
 #endif

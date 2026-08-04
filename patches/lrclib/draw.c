@@ -1,7 +1,10 @@
 #include <ncurses.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "keybinds.h"
+#include "lrclib.h"
+#include "mpd.h"
 #include "types.h"
 #include "ui.h"
 
@@ -40,10 +43,49 @@ lrclib_insert_mode_active(void) {
   return insert_mode_active;
 }
 
+static void clamp_col(void);
+
+static bool
+is_blank(char c) {
+  return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+void
+lrclib_trim_trailing(void) {
+  size_t i;
+
+  for (i = 0; i < line_count; i++) {
+    SyncLine *ln = &lines[i];
+
+    while (ln->len > 0 && is_blank(ln->text[ln->len - 1]))
+      ln->len--;
+    ln->text[ln->len] = '\0';
+  }
+
+  while (line_count > 0 && lines[line_count - 1].len == 0)
+    line_count--;
+
+  if (line_count == 0) {
+    cur_line = 0;
+    cur_col = 0;
+    scroll_row = 0;
+    scroll_col = 0;
+    return;
+  }
+
+  if (cur_line >= line_count)
+    cur_line = line_count - 1;
+  if (scroll_row >= line_count)
+    scroll_row = line_count - 1;
+  clamp_col();
+}
+
 void
 lrclib_set_insert_mode(const Arg *arg) {
   if (arg->b)
     lines_ready();
+  else
+    lrclib_trim_trailing();
   insert_mode_active = arg->b;
 }
 
@@ -150,6 +192,33 @@ backspace(void) {
 }
 
 static void
+delete(void) {
+  SyncLine *ln = &lines[cur_line];
+  size_t end;
+
+  if (cur_col >= ln->len) {
+    size_t at = cur_col, before = line_count;
+
+    if (cur_line + 1 >= line_count)
+      return;
+    cur_line++;
+    cur_col = 0;
+    join_prev_line();
+    if (line_count == before) {
+      cur_line--;
+      cur_col = at;
+    }
+    return;
+  }
+
+  end = next_char(ln->text, cur_col, ln->len);
+  memmove(ln->text + cur_col, ln->text + end, ln->len - end);
+  ln->len -= end - cur_col;
+  ln->text[ln->len] = '\0';
+}
+
+
+static void
 clamp_col(void) {
   SyncLine *ln = &lines[cur_line];
 
@@ -195,6 +264,9 @@ lrclib_handle_input(int input) {
     case '\b':
       backspace();
       return;
+    case KEY_DC:
+      delete();
+      return;
     case KEY_ENTER:
     case '\n':
     case '\r':
@@ -237,9 +309,46 @@ lrclib_handle_input(int input) {
     insert_byte((char)input);
 }
 
-static void
-sync_line(void) {
+void
+lrclib_sync_line(const Arg *arg) {
+  (void)arg;
 
+  lines_ready();
+  if (!has_song_loaded())
+    return;
+
+  lines[cur_line].time_ms = (long)get_elapsed_ms();
+  lrclib_move(1);
+}
+
+size_t
+lrclib_line_count(void) {
+  return line_count;
+}
+
+const char *
+lrclib_line_text(size_t i, long *time_ms) {
+  if (i >= line_count)
+    return NULL;
+  if (time_ms != NULL)
+    *time_ms = lines[i].time_ms;
+  return lines[i].text;
+}
+
+static void
+draw_lrclib_status(WINDOW *win) {
+  const char *msg = lrclib_publish_message();
+  int height, width, slot;
+
+  if (msg[0] == '\0')
+    return;
+
+  getmaxyx(win, height, width);
+  slot = lrclib_publish_state() == LRCLIB_PUBLISH_ERROR ? STYLE_ERROR
+    : STYLE_HIGHLIGHT;
+  style_on(win, slot);
+  draw_text_right(win, height - 2, 3, width - 6, msg);
+  style_off(win, slot);
 }
 
 static void
@@ -253,8 +362,11 @@ draw_lrclib_keybinds(WINDOW *win) {
     hint_add_b(buf, sizeof(buf), &len, "Exit", lrclib_set_insert_mode, false);
   }
   else {
+    hint_add(buf, sizeof(buf), &len, "Sync", lrclib_sync_line);
     hint_add_b(buf, sizeof(buf), &len, "Edit", lrclib_set_insert_mode, true);
     hint_add(buf, sizeof(buf), &len, "Clear", lrclib_clear);
+    hint_add(buf, sizeof(buf), &len, "Save", lrclib_save_lrc);
+    hint_add(buf, sizeof(buf), &len, "Publish", lrclib_publish_current);
   }
 
 
@@ -324,7 +436,8 @@ draw_cursor(WINDOW *win, int row, int x, int width, int cursor_col) {
 
 static void
 draw_lrclib_lyrics(WINDOW *win) {
-  int padding = 6;
+  /* wide enough for a mm:ss.xx stamp plus a column of gap */
+  int padding = 9;
   int height, width, rows, avail, cursor_col;
   size_t i;
 
@@ -340,14 +453,33 @@ draw_lrclib_lyrics(WINDOW *win) {
   cursor_col = cursor_column();
   scroll_follow(rows, avail, cursor_col);
 
-  style_on(win, STYLE_DEFAULT);
   for (i = scroll_row; i < line_count && (int)(i - scroll_row) < rows; i++) {
     const SyncLine *ln = &lines[i];
     size_t off = byte_at_column(ln->text, scroll_col);
+    int row = (int)(i - scroll_row);
+    /* out of insert mode the cursor is the only thing saying which line the
+     * sync key will stamp, so the row itself has to show it */
+    int slot = (i == cur_line && !insert_mode_active) ? STYLE_ACTIVE
+      : STYLE_DEFAULT;
 
-    draw_text(win, (int)(i - scroll_row), padding, avail, ln->text + off);
+    if (ln->time_ms >= 0) {
+      char stamp[32];
+      /* clamped so a silly timestamp cannot push the gutter out of shape */
+      int mins = (int)(ln->time_ms / 60000);
+      int secs = (int)(ln->time_ms / 1000 % 60);
+      int cs = (int)(ln->time_ms % 1000 / 10);
+
+      snprintf(stamp, sizeof(stamp), "%02d:%02d.%02d", mins > 99 ? 99 : mins,
+               secs, cs);
+      style_on(win, STYLE_TIME);
+      draw_text(win, row, 0, padding - 1, stamp);
+      style_off(win, STYLE_TIME);
+    }
+
+    style_on(win, slot);
+    draw_text(win, row, padding, avail, ln->text + off);
+    style_off(win, slot);
   }
-  style_off(win, STYLE_DEFAULT);
 
   if (insert_mode_active)
     draw_cursor(win, (int)(cur_line - scroll_row), padding, width,
@@ -357,6 +489,7 @@ draw_lrclib_lyrics(WINDOW *win) {
 void
 draw_lrclib_sync(WINDOW *win) {
   draw_lrclib_keybinds(win);
+  draw_lrclib_status(win);
   draw_lrclib_lyrics(win);
 }
 

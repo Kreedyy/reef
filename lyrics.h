@@ -16,6 +16,13 @@ typedef enum {
 typedef void (*LyricsProvider)(const char *artist, const char *title);
 void lyrics_set(const char *artist, const char *title, const char *text);
 
+/* writes text as this track's .lrc in the lyrics directory, the same file
+ * lyrics_set() caches to and the same one the tab reads back. Fills path with
+ * where it went when path is not NULL. Returns false if it could not be
+ * written */
+bool lyrics_save(const char *artist, const char *title, const char *text,
+    char *path, size_t cap);
+
 /* patches should not touch these */
 
 void lyrics_init(void);

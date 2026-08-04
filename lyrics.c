@@ -210,15 +210,21 @@ set_text(const char *text) {
 static int
 current_line(void) {
   long elapsed;
-  int i, idx = -1;
+  int i, idx = -1, first = -1;
 
   if (!synced)
     return -1;
   elapsed = (long)get_elapsed_ms();
-  for (i = 0; i < line_count; i++)
-    if (lines[i].time_ms >= 0 && lines[i].time_ms <= elapsed)
+  for (i = 0; i < line_count; i++) {
+    if (lines[i].time_ms < 0)
+      continue;
+    if (first < 0)
+      first = i;
+    if (lines[i].time_ms <= elapsed)
       idx = i;
-  return idx;
+  }
+
+  return idx >= 0 ? idx : first;
 }
 
 static void
@@ -467,23 +473,35 @@ load_local(const char *artist, const char *title) {
   return true;
 }
 
-static void
-save_local(const char *artist, const char *title, const char *text) {
+bool
+lyrics_save(const char *artist, const char *title, const char *text,
+            char *path, size_t cap) {
   char dir[700];
-  char path[1024];
+  char buf[1024];
   FILE *fp;
+  bool ok;
 
   if (!lyrics_dir(dir, sizeof(dir)))
-    return;
+    return false;
   mkdir(dir, 0755);
 
-  if (!lyrics_path(artist, title, "lrc", path, sizeof(path)))
-    return;
-  fp = fopen(path, "wb");
+  if (!lyrics_path(artist, title, "lrc", buf, sizeof(buf)))
+    return false;
+  fp = fopen(buf, "wb");
   if (fp == NULL)
-    return;
-  fputs(text, fp);
-  fclose(fp);
+    return false;
+  ok = fputs(text, fp) >= 0;
+  if (fclose(fp) != 0)
+    ok = false;
+
+  if (ok && path != NULL)
+    snprintf(path, cap, "%s", buf);
+  return ok;
+}
+
+static void
+save_local(const char *artist, const char *title, const char *text) {
+  lyrics_save(artist, title, text, NULL, 0);
 }
 
 static void
