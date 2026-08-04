@@ -48,6 +48,18 @@ example_nav(int dir) {
     column = dir < 0 ? 0 : EXAMPLE_COLUMNS - 1;
 }
 
+void
+example_reset(const Arg *arg) {
+  (void)arg;
+
+  if (tab_active(draw_example_testtab2)) {
+    list_cursor = 0;
+    return;
+  }
+  grid_cursor = 0;
+  column = 0;
+}
+
 static void
 draw_hints(WINDOW *win, int width, bool columns) {
   char buf[64] = "";
@@ -59,6 +71,8 @@ draw_hints(WINDOW *win, int width, bool columns) {
   }
   hint_add_i(buf, sizeof(buf), &len, "Down", cursor_move, 1);
   hint_add_i(buf, sizeof(buf), &len, "Up", cursor_move, -1);
+
+  hint_add(buf, sizeof(buf), &len, "Reset", example_reset);
 
   draw_text_centered(win, 0, 0, width, buf);
 }

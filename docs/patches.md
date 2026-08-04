@@ -162,6 +162,74 @@ Same idea, but the block goes at the top of `handle_key()` in [`keybinds.c`](../
 
 Any part of the core program can be extended like this, these are just already implemented.  
 
+## Adding a keybind
+
+### Global
+
+A key that belongs to the whole program goes in `keybinds[]` in `config.def.h`,
+guarded so it only exists when the patch does:
+
+```c
+/* config.def.h */
+static const Keybind keybinds[] = {
+  /* existing binds... */
+
+#ifdef PATCH_login
+  { 'L', login_prompt, {0} },
+#endif
+};
+```
+
+### Local
+
+A key that only makes sense on your own tab goes in a keybind array of your own
+instead and `tab_keybinds[]` points at it.  
+It overrides `keybinds[]` *while that tab is focused* and every key it does not  
+name still falls through to the global array.
+
+Declare the array and a `_KEYBINDS` macro in your patch header:
+
+```c
+/* patches/login/login.h */
+void login_submit(const Arg *arg);
+void login_clear(const Arg *arg);
+
+static const Keybind login_keybinds[] = {
+  /* key  function       argument */
+  { 'r',  login_submit,  {0} },
+  { 'a',  login_clear,   {0} },
+  { 'C',  NULL,          {0} },
+};
+
+/* one entry per tab that wants these keys, tabs left out keep the
+ * global binds unchanged.
+ * Make sure the last entry ends with a comma !! */
+#define LOGIN_KEYBINDS \
+TAB_KEYBINDS(draw_login_form, login_keybinds), \
+TAB_KEYBINDS(draw_login_settings, login_keybinds),
+```
+
+Then the guarded block in `config.def.h`:
+
+```c
+/* config.def.h */
+static const TabKeybind tab_keybinds[] = {
+
+#ifdef PATCH_login
+  LOGIN_KEYBINDS
+#endif
+
+  { NULL, NULL, 0 },
+};
+```
+
+`hint_add()` looks the focused tab's binds up before `keybinds[]` does.  
+It also removes the hint inside the keybind bar on a tab where said  
+key is overwritten.
+
+If a tab wants to consume raw keys i.e. typing out `q` instead of quitting  
+should look at `handle_key()` in [`keybinds.c`](keybinds.c)
+
 ## Drawing text
 
 Use `draw_text()`, `draw_text_centered()`, `draw_text_right()` and

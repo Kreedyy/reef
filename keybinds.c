@@ -69,24 +69,63 @@ quit(const Arg *arg) {
   running = 0;
 }
 
+static const Keybind *
+local_lookup(int key) {
+  size_t t, n;
+
+  for (t = 0; t < LENGTH(tab_keybinds); t++) {
+    if (!tab_keybinds[t].draw || !tab_active(tab_keybinds[t].draw))
+      continue;
+    for (n = 0; n < tab_keybinds[t].count; n++)
+      if (tab_keybinds[t].binds[n].key == key)
+        return &tab_keybinds[t].binds[n];
+  }
+  return NULL;
+}
+
+static int
+scan(const Keybind *binds, size_t count, void (*action)(const Arg *),
+     const int *i) {
+  size_t n;
+
+  for (n = 0; n < count; n++)
+    if (binds[n].action == action && (!i || binds[n].arg.i == *i))
+      return binds[n].key;
+  return -1;
+}
+
+static int
+lookup_key(void (*action)(const Arg *), const int *i) {
+  const Keybind *shadow;
+  size_t t;
+  int key;
+
+  for (t = 0; t < LENGTH(tab_keybinds); t++) {
+    if (!tab_keybinds[t].draw || !tab_active(tab_keybinds[t].draw))
+      continue;
+    key = scan(tab_keybinds[t].binds, tab_keybinds[t].count, action, i);
+    if (key >= 0)
+      return key;
+  }
+
+  key = scan(keybinds, LENGTH(keybinds), action, i);
+  if (key < 0)
+    return -1;
+
+  /* the global key exists but the focused tab points it elsewhere, so as
+   * far as this tab is concerned the action is unbound */
+  shadow = local_lookup(key);
+  return shadow && shadow->action != action ? -1 : key;
+}
+
 int
 key_for_action(void (*action)(const Arg *)) {
-  size_t i;
-
-  for (i = 0; i < LENGTH(keybinds); i++)
-    if (keybinds[i].action == action)
-      return keybinds[i].key;
-  return -1;
+  return lookup_key(action, NULL);
 }
 
 int
 key_for_action_i(void (*action)(const Arg *), int i) {
-  size_t n;
-
-  for (n = 0; n < LENGTH(keybinds); n++)
-    if (keybinds[n].action == action && keybinds[n].arg.i == i)
-      return keybinds[n].key;
-  return -1;
+  return lookup_key(action, &i);
 }
 
 void
@@ -99,7 +138,7 @@ init_keybinds(void) {
 
 void
 handle_key(int input) {
-  Keybind *kb;
+  const Keybind *kb;
 
   /* patches that have things which need control over the input
  * can insert themselves here in a similar way to navigation in ui.c
@@ -141,11 +180,16 @@ handle_key(int input) {
     return;
   }
 
-  kb = bind_lookup(input);
-  if (kb)
-    kb->action(&kb->arg);
-  else
+  /* the focused tab gets first refusal on the key, keybinds[] only sees
+   * what it did not name */
+  kb = local_lookup(input);
+  if (!kb)
+    kb = bind_lookup(input);
+
+  if (!kb)
     focus_tab_by_key(input);
+  else if (kb->action)
+    kb->action(&kb->arg);
   update_panels();
   doupdate();
   ui_redraw(REDRAW_KEYPRESS);

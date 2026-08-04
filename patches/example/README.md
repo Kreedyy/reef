@@ -13,8 +13,9 @@ into `tabs[]` under `#ifdef PATCH_example`.
 See [`ui.c`](../../ui.c)'s `nav()` and `cursor_by()` functions.  
 `example_active()` lists only the tabs that want the cursor keys, so
 `testtab3` keeps reef's default handling.
-- **Drawing a hint line** whose keys come from the user's `config.h` rather than
-from hardcoded strings, via `hint_add()` and `hint_add_i()` from `ui.h`.
+- **Local keybinds:**  
+`EXAMPLE_KEYBINDS` in `example.h` gives `testtab1` and `testtab2`  
+a new keybind, overrides a default one and draws bind hints.
 
 See [docs/patches.md](../../docs/patches.md) for a more thorough walkthrough.
 

@@ -99,6 +99,7 @@ static const int delta_volume = 5;
 
 #define KEY_TAB '\t'
 
+/* Global keybinds */
 static const Keybind keybinds[] = {
   /* key       function         argument */
 
@@ -155,6 +156,20 @@ static const Keybind keybinds[] = {
   { 'U',       update_database, {0} }, /* update database */
 
   { 'q',       quit,            {0} }, /* quit */
+
+  /* Patches (see docs/patches.md)*/
+
+};
+
+/* Tab specific keybinds, if you wish to rebind these
+ * modify said patch's header file */
+static const TabKeybind tab_keybinds[] = {
+
+#ifdef PATCH_example
+  EXAMPLE_KEYBINDS
+#endif
+
+  { NULL, NULL, 0 },
 };
 
 /* columns are in % of queue width. Time column is fixed width and Track
