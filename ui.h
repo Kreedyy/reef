@@ -87,6 +87,9 @@ void draw_progress_bar(WINDOW *win, int row, int width);
  * strlen(). These measure using columns instead of bytes to prevent a
  * disagreement between ncurses and the terminal. */
 int text_width(const char *text);
+
+int text_clip(const char *text, int width, int *used);
+
 void draw_text(WINDOW *win, int row, int x, int width, const char *text);
 void draw_text_centered(WINDOW *win, int row, int x, int width,
     const char *text);

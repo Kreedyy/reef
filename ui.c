@@ -720,8 +720,8 @@ next_cluster(const utf8proc_uint8_t *bytes, utf8proc_ssize_t len, Cluster *c) {
   return used;
 }
 
-static int
-clip(const char *text, int width, int *used) {
+int
+text_clip(const char *text, int width, int *used) {
   const utf8proc_uint8_t *bytes = (const utf8proc_uint8_t *)text;
   utf8proc_ssize_t len = (utf8proc_ssize_t)strlen(text);
   utf8proc_ssize_t pos = 0;
@@ -747,7 +747,7 @@ int
 text_width(const char *text) {
   int columns;
 
-  clip(text, INT_MAX, &columns);
+  text_clip(text, INT_MAX, &columns);
   return columns;
 }
 
@@ -784,7 +784,7 @@ draw_text_centered(WINDOW *win, int row, int x, int width, const char *text) {
 
   if (width <= 0)
     return;
-  clip(text, width, &columns);
+  text_clip(text, width, &columns);
   draw_text(win, row, x + (width - columns) / 2, columns, text);
 }
 
@@ -794,7 +794,7 @@ draw_text_right(WINDOW *win, int row, int x, int width, const char *text) {
 
   if (width <= 0)
     return;
-  clip(text, width, &columns);
+  text_clip(text, width, &columns);
   draw_text(win, row, x + width - columns, columns, text);
 }
 
@@ -989,6 +989,12 @@ void
 hint_add_i(char *buf, size_t size, size_t *len, const char *label,
            void (*action)(const Arg *), int i) {
   hint_append(buf, size, len, label, key_for_action_i(action, i));
+}
+
+void
+hint_add_b(char *buf, size_t size, size_t *len, const char *label,
+           void (*action)(const Arg *), bool b) {
+  hint_append(buf, size, len, label, key_for_action_b(action, b));
 }
 
 const char *
@@ -1968,6 +1974,13 @@ cursor_by(int delta) {
 
   /* patches hook their tab in here for up/down navigation,
    * see docs/patches.md */
+#ifdef PATCH_lrclib
+  if (lrclib_sync_active()) {
+    lrclib_move(delta);
+    cursor_repaint();
+    return;
+  }
+#endif
 #ifdef PATCH_example
   if (example_active()) {
     example_move(delta);
@@ -2013,6 +2026,13 @@ void
 cursor_page(const Arg *arg) {
   int page;
 
+  /* patches size their own page here, the movement itself still goes
+   * through cursor_by(), see docs/patches.md */
+#ifdef PATCH_lrclib
+  if (lrclib_sync_active())
+    page = lrclib_page_rows();
+  else
+#endif
   if (browse_active()) {
     page = browser.page > 0 ? browser.page : 1;
   } else if (lyrics_active()) {
@@ -2032,6 +2052,14 @@ cursor_edge(const Arg *arg) {
   const SongList *list;
   ListView *view;
 
+  /* patches hook their tab in here for top/bottom, see docs/patches.md */
+#ifdef PATCH_lrclib
+  if (lrclib_sync_active()) {
+    lrclib_edge(arg->i);
+    cursor_repaint();
+    return;
+  }
+#endif
   if (browse_active()) {
     browser_edge(arg->i > 0);
     cursor_repaint();
