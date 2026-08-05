@@ -7,6 +7,7 @@ Enabled by default.
 # Dependencies
 
 - [http](../http/)
+- [json](../json/)
 - libcurl
 
 # Authors

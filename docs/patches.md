@@ -40,16 +40,18 @@ because of the `ifndef` guard above.
 
 By default the lyrics tab only reads local .lrc files. The `lrclib` patch
 fetches from lrclib.net when no local file is found, and to do that it pulls in
-`patches/http`:
+two others:
 
 ```make
 include patches/http/config.mk
+include patches/json/config.mk
 ```
 
-`http` is a *library patch*: it exposes non-blocking `http_get()` and `http_post()`
-built on libcurl and is never enabled on its own, only pulled in
-by patches that need networking.  
-See [its README.md](../patches/http/README.md).
+Both are *library patches*, never enabled on their own and only pulled in by  
+patches that need them. `http` exposes non-blocking `http_get()` and  
+`http_post()` built on libcurl, and `json` reads the fields back out of what
+they answer with.  
+See [http](../patches/http/README.md) and [json](../patches/json/README.md).
 
 A patch can also check `#ifdef PATCH_<name>` to extend itself only when another
 patch happens to be enabled, without depending on it.

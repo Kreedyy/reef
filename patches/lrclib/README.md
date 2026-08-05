@@ -6,6 +6,7 @@ the lyrics from [lrclib.net](https://lrclib.net) and display those if any were f
 # Dependencies
 
 - [http](../http)
+- [json](../json)
 
 # Authors
 

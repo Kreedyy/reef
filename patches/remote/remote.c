@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include "http.h"
+#include "json.h"
 #include "remote.h"
 
 /* Any Forgejo api root works, its compare endpoint
@@ -35,27 +36,6 @@ now_ms(void) {
   return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-static const char *
-json_value(const char *json, const char *key) {
-  size_t kl = strlen(key);
-  const char *s;
-
-  for (s = json; *s != '\0'; s++) {
-    const char *b = s;
-
-    if (strncmp(s, key, kl) != 0)
-      continue;
-    while (b > json && (b[-1] == ' ' || b[-1] == '\t' || b[-1] == '\n' ||
-      b[-1] == '\r'))
-      b--;
-    if (b > json && b[-1] != '{' && b[-1] != ',')
-      continue;
-    s += kl;
-    return s + strspn(s, " \t:");
-  }
-  return NULL;
-}
-
 static void
 short_sha(const char *p, char *out, size_t n) {
   size_t i;
@@ -72,9 +52,8 @@ short_sha(const char *p, char *out, size_t n) {
  * */
 static void
 on_commits(const HttpResponse *resp, void *user) {
-  char total[16];
+  char total[16], sha[64];
   Result *res = user;
-  const char *p;
   long behind;
 
   res->done = true;
@@ -90,10 +69,10 @@ on_commits(const HttpResponse *resp, void *user) {
   if (behind < 0)
     return;
 
-  p = json_value(resp->data, "\"sha\"");
-  if (p == NULL || *p != '"')
+  if (!json_string(resp->data, resp->data + resp->len, "sha", sha,
+                   sizeof(sha)))
     return;
-  short_sha(p + 1, res->tip, sizeof(res->tip));
+  short_sha(sha, res->tip, sizeof(res->tip));
 
   res->behind = (int)behind;
 }

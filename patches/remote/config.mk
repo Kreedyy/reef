@@ -3,6 +3,7 @@ ifndef _patch_remote
 _patch_remote := 1
 
 include patches/http/config.mk
+include patches/json/config.mk
 
 PATCHDEFS += -DPATCH_remote \
 	-DREMOTE_LOCAL="\"$(LOCAL)\"" \
