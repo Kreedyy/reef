@@ -111,7 +111,7 @@ lrclib_provider(const char *artist, const char *title) {
     return;
   }
 
-  snprintf(url, sizeof(url), "https://lrclib.net/api/search?q=%s+%s", a, t);
+  snprintf(url, sizeof(url), "https://lrclib.net/api/search?q=%s+%s", t, a);
   http_escape_free(a);
   http_escape_free(t);
 
