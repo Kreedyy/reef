@@ -46,6 +46,9 @@ If the program fails to build after adding a patch try running:
 `make clean all 2>&1 | tee build.log`  
 and inspecting the `build.log` file for any missing package errors.
 
+If it instead fails to build after pulling changes make sure your `config.h`  
+includes any new changes from `config.def.h`.
+
 Installing:  
 `make install`
 
