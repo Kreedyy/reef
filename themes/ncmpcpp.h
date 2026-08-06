@@ -14,98 +14,29 @@
 #define COLOR_WHITE_           0xffffff
 #define COLOR_GREY_            0x808080
 
-#ifndef COLOR_DEFAULT
 #define COLOR_DEFAULT          COLOR_YELLOW_
-#endif
-
-#ifndef COLOR_BORDER
 #define COLOR_BORDER           COLOR_GREY_
-#endif
-
-#ifndef COLOR_BORDER_FOCUSED
 #define COLOR_BORDER_FOCUSED   COLOR_GREEN_
-#endif
-
-#ifndef COLOR_TITLE
 #define COLOR_TITLE            COLOR_WHITE_
-#endif
-
-#ifndef COLOR_ARTIST
 #define COLOR_ARTIST           COLOR_MAGENTA_
-#endif
-
-#ifndef COLOR_ALBUM
 #define COLOR_ALBUM            COLOR_CYAN_
-#endif
-
-#ifndef COLOR_TRACK
 #define COLOR_TRACK            COLOR_DEFAULT
-#endif
-
-
-#ifndef COLOR_STATE_PLAYER
 #define COLOR_STATE_PLAYER     TRANSPARENT
-#endif
-
-#ifndef COLOR_STATE_MODES_ON
 #define COLOR_STATE_MODES_ON   COLOR_MAGENTA_
-#endif
-
-#ifndef COLOR_STATE_MODES_OFF
 #define COLOR_STATE_MODES_OFF  COLOR_GREY_
-#endif
-
-#ifndef COLOR_TAB
 #define COLOR_TAB              TRANSPARENT
-#endif
-
-#ifndef COLOR_TAB_ACTIVE
 #define COLOR_TAB_ACTIVE       TRANSPARENT
-#endif
-
-#ifndef COLOR_PROGRESS
 #define COLOR_PROGRESS         COLOR_GREEN_
-#endif
-
-#ifndef COLOR_TIME
 #define COLOR_TIME             COLOR_MAGENTA_
-#endif
-
-#ifndef COLOR_VOLUME
 #define COLOR_VOLUME           TRANSPARENT
-#endif
-
-#ifndef COLOR_COLUMN_HEADER
 #define COLOR_COLUMN_HEADER    COLOR_YELLOW_
-#endif
-
-#ifndef COLOR_KEYBIND
 #define COLOR_KEYBIND          TRANSPARENT
-#endif
-
-#ifndef COLOR_ERROR
 #define COLOR_ERROR            COLOR_RED_
-#endif
-
-#ifndef COLOR_ACTIVE
 #define COLOR_ACTIVE           COLOR_YELLOW_
-#endif
-
-#ifndef COLOR_HIGHLIGHT
 #define COLOR_HIGHLIGHT        COLOR_CYAN_
-#endif
-
-#ifndef COLOR_BACKGROUND
 #define COLOR_BACKGROUND       TRANSPARENT
-#endif
-
-#ifndef COLOR_HIGHLIGHT_BG
 #define COLOR_HIGHLIGHT_BG     TRANSPARENT
-#endif
-
-#ifndef COLOR_ACTIVE_BG
 #define COLOR_ACTIVE_BG        TRANSPARENT
-#endif
 
 static const Style theme[STYLE_COUNT] = {
   /* slot                     fg                     bg                  attribute */

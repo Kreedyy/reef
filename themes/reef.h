@@ -13,97 +13,29 @@
 #define COLOR_GREY_SHADE_       0x45475a
 #define COLOR_RED_              0xf38ba8
 
-#ifndef COLOR_DEFAULT
 #define COLOR_DEFAULT          COLOR_BLUE_DARK_
-#endif
-
-#ifndef COLOR_BORDER
 #define COLOR_BORDER           COLOR_GREY_SHADE_
-#endif
-
-#ifndef COLOR_BORDER_FOCUSED
 #define COLOR_BORDER_FOCUSED   COLOR_GREEN_
-#endif
-
-#ifndef COLOR_TITLE
 #define COLOR_TITLE            COLOR_GREY_
-#endif
-
-#ifndef COLOR_ARTIST
 #define COLOR_ARTIST           COLOR_GREEN_
-#endif
-
-#ifndef COLOR_TRACK
 #define COLOR_TRACK            COLOR_DEFAULT
-#endif
-
-#ifndef COLOR_ALBUM
 #define COLOR_ALBUM            COLOR_BLUE_LIGHT_
-#endif
-
-#ifndef COLOR_STATE_PLAYER
 #define COLOR_STATE_PLAYER     COLOR_BLUE_LIGHT_
-#endif
-
-#ifndef COLOR_STATE_MODES_ON
 #define COLOR_STATE_MODES_ON   COLOR_GREEN_
-#endif
-
-#ifndef COLOR_STATE_MODES_OFF
 #define COLOR_STATE_MODES_OFF  COLOR_BLUE_LIGHT_
-#endif
-
-#ifndef COLOR_TAB
 #define COLOR_TAB              COLOR_GREEN_
-#endif
-
-#ifndef COLOR_TAB_ACTIVE
 #define COLOR_TAB_ACTIVE       COLOR_GREEN_
-#endif
-
-#ifndef COLOR_PROGRESS
 #define COLOR_PROGRESS         COLOR_GREEN_
-#endif
-
-#ifndef COLOR_TIME
 #define COLOR_TIME             COLOR_GREEN_
-#endif
-
-#ifndef COLOR_VOLUME
 #define COLOR_VOLUME           COLOR_GREEN_
-#endif
-
-#ifndef COLOR_COLUMN_HEADER
 #define COLOR_COLUMN_HEADER    COLOR_GREEN_
-#endif
-
-#ifndef COLOR_KEYBIND
 #define COLOR_KEYBIND          COLOR_BLUE_LIGHT_
-#endif
-
-#ifndef COLOR_ERROR
 #define COLOR_ERROR            COLOR_RED_
-#endif
-
-#ifndef COLOR_HIGHLIGHT
 #define COLOR_HIGHLIGHT        COLOR_GREEN_
-#endif
-
-#ifndef COLOR_ACTIVE
 #define COLOR_ACTIVE           COLOR_DEFAULT
-#endif
-
-#ifndef COLOR_BACKGROUND
 #define COLOR_BACKGROUND       TRANSPARENT
-#endif
-
-#ifndef COLOR_HIGHLIGHT_BG
 #define COLOR_HIGHLIGHT_BG     COLOR_BLUE_LIGHT_
-#endif
-
-#ifndef COLOR_ACTIVE_BG
 #define COLOR_ACTIVE_BG        TRANSPARENT
-#endif
 
 static const Style theme[STYLE_COUNT] = {
   /* slot                     fg                     bg                  attribute */

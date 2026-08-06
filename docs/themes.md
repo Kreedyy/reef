@@ -16,29 +16,7 @@ A theme defines one `COLOR_*` per `STYLE_*` slot in `theme.h`:
 `COLOR_TITLE` is what `STYLE_TITLE` draws with, `COLOR_ERROR` what `STYLE_ERROR`
 draws with, and so on.
 
-Each is wrapped in an `#ifndef` so `config.h` can override it, see
-[below](#overriding-single-colors):
-
-```c
-#ifndef COLOR_TITLE
-#define COLOR_TITLE  0xcdd6f4
-#endif
-```
-
-Two more cover backgrounds, since those do not vary per slot:
-
-```c
-#ifndef COLOR_BACKGROUND
-#define COLOR_BACKGROUND    TRANSPARENT
-#endif
-
-#ifndef COLOR_HIGHLIGHT_BG
-#define COLOR_HIGHLIGHT_BG  0x2b486d
-#endif
-```
-
-All of them are required so that users can override specific colors. Keep
-`COLOR_BACKGROUND` transparent unless you want a solid background,  
+Keep `COLOR_BACKGROUND` transparent unless you want a solid background,  
 which is not recommended for themes you wanna submit as themes should respect the terminal's background setting.
 
 ## The slot table
@@ -55,22 +33,11 @@ static const Style theme[STYLE_COUNT] = {
 };
 ```
 
-The full slot list is the `STYLE_*` enum in `theme.h`. Nothing forces the
-pairing, but the matching names are there to keep the table readable and
-overriding consistent. Meaning if you want to reuse a color across multiple
-`STYLE_*` options you should copy paste the same color for the respective
-`COLOR_*`s rather than doing i.e. `[STYLE_BORDER] = { COLOR_TITLE }`.
-
-## Overriding single colors
-
-`config.h` can change one color without forking the whole theme. Define it
-**before** the `#include`, so the theme's `#ifndef` sees it already set:
-
-```c
-/* config.h */
-#define COLOR_TITLE  0xff0000
-#include "themes/reef.h"
-```
+The full slot list is the `STYLE_*` enum in `theme.h`. Nothing forces the  
+pairing, but the matching names are there to keep the table readable.  
+Meaning if you want to reuse a color across multiple `STYLE_*` options you  
+should copy paste the same color for the respective `COLOR_*`s rather than  
+doing i.e. `[STYLE_BORDER] = { COLOR_TITLE }`.
 
 ## Attributes
 
@@ -86,18 +53,17 @@ overriding consistent. Meaning if you want to reuse a color across multiple
 | `A_STANDOUT`  | terminal's "best" highlight (usually reverse) |
 | `A_BLINK`     | blinking text                                 |
 
-These are ncurses attributes and anything ncurses defines technically works,
+These are ncurses attributes and anything ncurses defines technically works,  
 the table is just the useful subset that has been tested.
 
 `A_STANDOUT` works the same as `A_REVERSE` from my understanding and testing.
 
 ## Colors and the terminal
 
-Colors are 24-bit hex, `0xRRGGBB`. Exact 24-bit rendering needs a direct-color
+Colors are 24-bit hex, `0xRRGGBB`. Exact 24-bit rendering needs a direct-color  
 `TERM`/`COLORTERM` but xterm-256color and xterm-16color are supported.
 
-`TRANSPARENT` means *do not paint*, meaning the terminal's own color (and its
-transparency) shows through.  
+`TRANSPARENT` means *do not paint*, meaning the terminal's own color (and its transparency) shows through.  
 It is `0x000000` so an unset slot falls back to
 that. This means you must write pure black differently, i.e. `0x010101`.
 
@@ -111,10 +77,8 @@ slot table only to change an *attribute*.
 In order of preference:
 
 1. **Reuse a slot.** Slots are named by meaning, so use the one closest to what you need.
-2. **A theme color.** You can build a `Style` from the theme's
-`COLOR_*` names and draw with `style_custom()`.  
-This lets you define a custom
-style within your patch for easier use and extended customizability,
+2. **A theme color.** You can build a `Style` from the theme's `COLOR_*` names and draw with `style_custom()`.  
+This lets you define a custom style within your patch for easier use and extended customizability,  
 while still following whichever theme is selected:
 
    ```c

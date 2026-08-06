@@ -11,91 +11,27 @@
 #define COLOR_RED_PINK_ 0xFF0068
 #define COLOR_PURPLE_LIGHT_ 0xCAB0FF
 
-
-
-#ifndef COLOR_DEFAULT
 #define COLOR_DEFAULT          TRANSPARENT
-#endif
-
-#ifndef COLOR_BORDER
 #define COLOR_BORDER           COLOR_PINK_
-#endif
-
-#ifndef COLOR_BORDER_FOCUSED
 #define COLOR_BORDER_FOCUSED   COLOR_PINK_DARK_
-#endif
-
-#ifndef COLOR_TITLE
 #define COLOR_TITLE            COLOR_PURPLE_LIGHT_
-#endif
-
-#ifndef COLOR_ARTIST
 #define COLOR_ARTIST           COLOR_PURPLE_LIGHT_
-#endif
-
-#ifndef COLOR_ALBUM
 #define COLOR_ALBUM            COLOR_PURPLE_LIGHT_
-#endif
-
-#ifndef COLOR_STATE_PLAYER
 #define COLOR_STATE_PLAYER     COLOR_PINK_LIGHT_
-#endif
-
-#ifndef COLOR_STATE_MODES_ON
 #define COLOR_STATE_MODES_ON   COLOR_PINK_
-#endif
-
-#ifndef COLOR_STATE_MODES_OFF
 #define COLOR_STATE_MODES_OFF  COLOR_PINK_
-#endif
-
-#ifndef COLOR_TAB
 #define COLOR_TAB              TRANSPARENT
-#endif
-
-#ifndef COLOR_TAB_ACTIVE
 #define COLOR_TAB_ACTIVE       COLOR_PINK_
-#endif
-
-#ifndef COLOR_PROGRESS
 #define COLOR_PROGRESS         COLOR_PINK_
-#endif
-
-#ifndef COLOR_TIME
 #define COLOR_TIME             TRANSPARENT
-#endif
-
-#ifndef COLOR_VOLUME
 #define COLOR_VOLUME           COLOR_PINK_
-#endif
-
-#ifndef COLOR_COLUMN_HEADER
 #define COLOR_COLUMN_HEADER    COLOR_PINK_LIGHT_
-#endif
-
-#ifndef COLOR_KEYBIND
 #define COLOR_KEYBIND          TRANSPARENT
-#endif
-
-#ifndef COLOR_ERROR
 #define COLOR_ERROR            COLOR_RED_PINK_
-#endif
-
-#ifndef COLOR_HIGHLIGHT
 #define COLOR_HIGHLIGHT        COLOR_PINK_LIGHT_
-#endif
-
-#ifndef COLOR_BACKGROUND
 #define COLOR_BACKGROUND       TRANSPARENT
-#endif
-
-#ifndef COLOR_HIGHLIGHT_BG
 #define COLOR_HIGHLIGHT_BG     COLOR_PURPLE_LIGHT_
-#endif
-
-#ifndef COLOR_ACTIVE
-#define COLOR_ACTIVE     COLOR_WHITE_
-#endif
+#define COLOR_ACTIVE           COLOR_WHITE_
 
 static const Style theme[STYLE_COUNT] = {
   /* slot                     fg                     bg                  attribute */

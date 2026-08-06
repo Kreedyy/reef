@@ -80,14 +80,6 @@ static const int delta_volume = 5;
  * options: rmpc, ncmpcpp */
 #include "layouts/rmpc.h"
 
-/* you can override any color of the theme below by defining it here, BEFORE
- * the #include. See themes/reef.h for the full list.
- *
- * #define COLOR_TITLE  0xcddfff
- * #define COLOR_ARTIST 0xff16f4
- * ...
- */
-
 /* if you wish to create your own theme, consult docs/themes.md
  * Feel free to submit your custom theme
  * default: reef.h
@@ -131,8 +123,8 @@ static const Keybind keybinds[] = {
   { KEY_RIGHT, nav,             { .i = 1 } },
   { KEY_NPAGE, cursor_page,     { .i = 1 } },  /* page down */
   { KEY_PPAGE, cursor_page,     { .i = -1 } }, /* page up */
-  { KEY_HOME,  cursor_edge,     { .i = -1 } }, /* go to top */
-  { KEY_END,   cursor_edge,     { .i = 1 } },  /* go to bottom */
+  { KEY_HOME,  cursor_edge,     { .i = -1 } }, /* go to start */
+  { KEY_END,   cursor_edge,     { .i = 1 } },  /* go to end */
 
   { KEY_TAB,   cycle_tab,       { .i = 1 } },  /* next tab */
   { KEY_BTAB,  cycle_tab,       { .i = -1 } }, /* previous tab */
