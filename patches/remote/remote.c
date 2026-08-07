@@ -36,14 +36,28 @@ now_ms(void) {
   return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
+static bool
+is_hex(char c) {
+  return c != '\0' && strchr("0123456789abcdef", c) != NULL;
+}
+
 static void
 short_sha(const char *p, char *out, size_t n) {
   size_t i;
 
-  for (i = 0; i + 1 < n && *p != '\0' &&
-    strchr("0123456789abcdef", *p) != NULL; i++)
+  for (i = 0; i + 1 < n && is_hex(*p); i++)
     out[i] = *p++;
   out[i] = '\0';
+}
+
+static bool
+same_commit(const char *a, const char *b) {
+  size_t i;
+
+  for (i = 0; is_hex(a[i]) && is_hex(b[i]); i++)
+    if (a[i] != b[i])
+      return false;
+  return i > 0;
 }
 
 /* the body is a one element array, [{"url":"...","sha":"...",...}], holding
@@ -80,7 +94,9 @@ on_commits(const HttpResponse *resp, void *user) {
 bool
 remote_print_version(void) {
   Result res = { false, REMOTE_UNKNOWN, { '\0' } };
+  const char *ahead = REMOTE_AHEAD;
   long long deadline;
+  int behind;
 
   if (REMOTE_BASECOUNT[0] == '\0')
     return false;
@@ -108,7 +124,13 @@ remote_print_version(void) {
   if (res.behind == REMOTE_UNKNOWN || res.tip[0] == '\0')
     return false;
 
+  behind = res.behind;
+  if (same_commit(res.tip, REMOTE_LOCAL)) {
+    ahead = "0";
+    behind = 0;
+  }
+
   printf("reef local: %s  origin: %s@%s  +%s/-%d  remote: true\n",
-         REMOTE_LOCAL, REMOTE_BRANCH, res.tip, REMOTE_AHEAD, res.behind);
+         REMOTE_LOCAL, REMOTE_BRANCH, res.tip, ahead, behind);
   return true;
 }
