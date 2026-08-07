@@ -1800,7 +1800,7 @@ draw_search_form(WINDOW *win, int x, int w, int height) {
   for (i = 0; i < SF_COUNT; i++) {
     int row = search_field_row(i);
     char line[512];
-    bool sel;
+    int slot;
 
     if (row >= height)
       break;
@@ -1820,16 +1820,14 @@ draw_search_form(WINDOW *win, int x, int w, int height) {
                search_labels[i], value, caret);
     }
 
-    sel = i == search.cursor;
-    if (sel) {
-      style_on(win, STYLE_ACTIVE);
-      draw_text(win, row, x + 1, w - 2, line);
-      style_off(win, STYLE_ACTIVE);
-    } else {
-      style_on(win, STYLE_DEFAULT);
-      draw_text(win, row, x + 1, w - 2, line);
-      style_off(win, STYLE_DEFAULT);
-    }
+    if (i != search.cursor)
+      slot = STYLE_DEFAULT;
+    else
+      slot = search.focus == 0 ? STYLE_ACTIVE : STYLE_HIGHLIGHT;
+
+    style_on(win, slot);
+    draw_text(win, row, x + 1, w - 2, line);
+    style_off(win, slot);
   }
 }
 
@@ -1857,9 +1855,10 @@ draw_search_results(WINDOW *win, int x, int w, int height) {
     else
       snprintf(buf, sizeof(buf), "S %s", s->title);
 
-    sel = search.focus == 1 && i == search.view.cursor;
+    sel = i == search.view.cursor;
     marked = search.view.marked != NULL && search.view.marked[i];
-    browser_row(win, r, x, w, buf, STYLE_DEFAULT, sel, marked, 0);
+    browser_row(win, r, x, w, buf, STYLE_DEFAULT, sel, marked,
+                search.focus != 1);
   }
 }
 
