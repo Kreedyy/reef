@@ -83,7 +83,7 @@ static const int delta_volume = 5;
 /* if you wish to create your own theme, consult docs/themes.md
  * Feel free to submit your custom theme
  * default: reef.h
- * options: reef.h, ncmpcpp.h, rmpc.h */
+ * options: reef.h, ncmpcpp.h, rmpc.h, rose.h */
 #include "themes/reef.h"
 
 
