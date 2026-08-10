@@ -48,7 +48,7 @@ and inspecting the `build.log` file for any missing package errors.
 
 If it fails to build after pulling changes make sure your `config.h`  
 includes any new changes from `config.def.h` by running:  
-`git diff --no-index config.h config.def.h`
+`git diff --no-index config.def.h config.h`
 
 Installing:  
 `make install`
