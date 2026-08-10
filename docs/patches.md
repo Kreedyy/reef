@@ -158,6 +158,74 @@ selection along.
 
 There are four functions that handle the cursor navigation, see [ui.h](../ui.h).
 
+---
+
+Find/Filter (`/`) needs one more block in `focus_get()`, which is what hands  
+the keys the list to work on.
+
+Your patch owns the list and the cursor, `focus_get()` only points at them:
+
+```c
+/* patches/example/example.c */
+SongList example_songs;  /* your rows */
+ListView example_view;   /* their cursor */
+```
+
+```c
+/* ui.c */
+static bool
+focus_get(RowList *f) {
+
+  /* existing stuff... */
+
+#ifdef PATCH_example
+  if (example_active()) {
+    /* row_list(playlists, dirs, songs, cursor) NULL for the kinds you do not have */
+    *f = row_list(NULL, NULL, &example_songs, &example_view);
+    return true;
+  }
+#endif
+
+  /* existing stuff... */
+}
+```
+
+The view cannot be `NULL` as `filter_results()` reads its cursor.  
+The same block hands your tab multi-selection and the add keys (`a`, `A`) as
+well, they all ask `focus_get()` for the list.
+
+A `RowList` carries playlists, directories and songs. Find matches each of them by  
+its own rule in `focus_matches()`. A row that is none of the three is read as a song.  
+
+For rows that are only text, borrow a `DirList`. It is the lightest of the three
+and find matches a directory on its `name`, so your string goes there:
+
+```c
+/* patches/example/example.c */
+static Dir example_rows[] = {
+  { .name = "first row"  },  /* .path stays empty */
+  { .name = "second row" },
+};
+
+/* items, count, cap */
+static DirList example_list = { example_rows, 2, 2 };
+```
+
+Then hand that over as the dirs argument instead of the songs one:
+
+```c
+/* ui.c, inside your focus_get() block */
+*f = row_list(NULL, &example_list, NULL, &example_view);
+```
+
+Leaving `path` empty is fine for find, but `a` (add to queue) sends it to mpd,
+so fill it in or leave those keys out.
+
+Find draws nothing by itself. All it does is work out which row matched, put  
+that row number into `view->cursor` and ask for a repaint.  
+Showing it is your draw function's job: highlighting that row and  
+scrolling so the row is on screen.
+
 A patch with an input field wants raw keys instead, before the keybind table is
 consulted, so typing `q` inserts a `q` rather than quitting.  
 Same idea, but the block goes at the top of `handle_key()` in [`keybinds.c`](../keybinds.c).
@@ -230,7 +298,7 @@ It also removes the hint inside the keybind bar on a tab where said
 key is overwritten.
 
 If a tab wants to consume raw keys i.e. typing out `q` instead of quitting  
-should look at `handle_key()` in [`keybinds.c`](keybinds.c)
+look at `handle_key()` in [`keybinds.c`](keybinds.c).
 
 ## Drawing text
 

@@ -29,6 +29,9 @@ static PANEL *bar_panels[LENGTH(bars)];
 static WINDOW *tab_windows[LENGTH(tabs)];
 static PANEL *tab_panels[LENGTH(tabs)];
 
+static WINDOW *prompt_window;
+static PANEL *prompt_panel;
+
 const char *keybind_hint_string(void);
 
 #if SHOW_KEYBIND_BAR
@@ -95,6 +98,8 @@ static int active_index;
 static void apply_layout(void);
 static void browser_invalidate(void);
 static const char *find_prompt(void);
+static void place_prompt(void);
+static void draw_prompt(void);
 
 static int style_pair[STYLE_COUNT];
 static bool color_ready;
@@ -288,6 +293,10 @@ init_ncurses(void) {
   keybind_panel = new_panel(keybind_window);
 #endif
 
+  prompt_window = newwin(1, 1, 0, 0);
+  prompt_panel = new_panel(prompt_window);
+  hide_panel(prompt_panel);
+
   active_index = (starting_tab >= 0 && starting_tab < TAB_COUNT) ?
     starting_tab : 0;
 
@@ -414,6 +423,8 @@ apply_layout(void) {
 
   if (!panel_hidden(tab_panels[active_index]))
     top_panel(tab_panels[active_index]);
+
+  place_prompt();
 }
 
 void
@@ -427,7 +438,8 @@ ui_redraw(unsigned flags) {
   int i;
 
 #if SHOW_KEYBIND_BAR
-  if ((flags & REDRAW_PLAYER) && !panel_hidden(keybind_panel)) {
+  if ((flags & (REDRAW_PLAYER | REDRAW_KEYPRESS)) &&
+    !panel_hidden(keybind_panel)) {
     if (find_active()) {
       werase(keybind_window);
       style_on(keybind_window, STYLE_KEYBIND);
@@ -496,6 +508,12 @@ ui_redraw(unsigned flags) {
     touchwin(outer);
   }
 
+  if (playlist_prompt_active() && !panel_hidden(prompt_panel)) {
+    top_panel(prompt_panel);
+    werase(prompt_window);
+    draw_prompt();
+  }
+
   update_panels();
   doupdate();
 }
@@ -514,12 +532,19 @@ ui_on_mpd_events(enum mpd_idle events) {
     flags |= REDRAW_MIXER;
   if (events & MPD_IDLE_OPTIONS)
     flags |= REDRAW_PLAYER;
+  if (events & MPD_IDLE_STORED_PLAYLIST)
+    flags |= REDRAW_DATABASE;
 
   if (events & MPD_IDLE_PLAYER)
     lyrics_prefetch();
 
   if (events & MPD_IDLE_DATABASE) {
     mpd_invalidate_library();
+    browser_invalidate();
+  }
+
+  if (events & MPD_IDLE_STORED_PLAYLIST) {
+    mpd_invalidate_playlists();
     browser_invalidate();
   }
 
@@ -1012,6 +1037,7 @@ keybind_hint_string(void) {
   hint_add(buf, sizeof(buf), &len, "Prev", play_prev);
   hint_add(buf, sizeof(buf), &len, "Next", play_next);
   hint_add(buf, sizeof(buf), &len, "Add", add_to_queue);
+  hint_add(buf, sizeof(buf), &len, "Playlist", add_to_playlist);
   hint_add(buf, sizeof(buf), &len, "Select", select_item);
   hint_add(buf, sizeof(buf), &len, "Delete", delete_selected);
   hint_add(buf, sizeof(buf), &len, "Clear", clear_queue);
@@ -1135,21 +1161,6 @@ draw_song_row(WINDOW *win, int row, const Columns *c, const Song *song,
     wattr_off(win, A_UNDERLINE, NULL);
 }
 
-/* cursor is the selected row, offset is the first row on screen,
- * page remembers how many rows fit, so page-wise scrolling can
- * work from a keybind that has no access to the window. Each scrollable pane
- * keeps its own, so switching tabs does not lose your place. */
-typedef struct {
-  int cursor;
-  int offset;
-  int page;
-
-  int *marked; /* per item multi-selection marks */
-  int marked_cap;
-  int marked_count;
-  int marked_for; /* the list count the marks are valid for (-1 = stale) */
-} ListView;
-
 static ListView queue_view;
 
 static void
@@ -1193,7 +1204,11 @@ typedef struct {
 
   DirList preview_dirs; /* highlighted center subfolder's */
   SongList preview;     /* ... and its songs */
-  char preview_path[512];
+  char preview_path[600];
+
+  char playlist[256]; /* the stored playlist we are inside, "" when not */
+  SongList pl_songs;  /* its songs, the center list while inside one */
+  ListView pl_view;
 
   int page; /* visible rows, for page scrolling */
   bool loaded;
@@ -1205,6 +1220,97 @@ typedef struct {
 } Browser;
 
 static Browser browser;
+
+/* both browse columns, the search results and the queue are described
+ * by this so the keybinds do not care which of them they are acting on */
+typedef struct {
+  ListView *view; /* NULL for a list with no cursor of its own */
+  int count;
+  const PlaylistList *pls;
+  const DirList *dirs;
+  const SongList *songs;
+  int pl_count;
+  int dir_count;
+} RowList;
+
+enum { ROW_PLAYLIST, ROW_DIR, ROW_SONG };
+
+static RowList
+row_list(const PlaylistList *pls, const DirList *dirs, const SongList *songs,
+         ListView *view) {
+  RowList l;
+
+  l.view = view;
+  l.pls = pls;
+  l.dirs = dirs;
+  l.songs = songs;
+  l.pl_count = pls != NULL ? pls->count : 0;
+  l.dir_count = dirs != NULL ? dirs->count : 0;
+  l.count = l.pl_count + l.dir_count +
+    (songs != NULL ? songs->count : 0);
+  return l;
+}
+
+static int
+row_kind(const RowList *l, int i, int *idx) {
+  if (i < l->pl_count) {
+    *idx = i;
+    return ROW_PLAYLIST;
+  }
+  if (i - l->pl_count < l->dir_count) {
+    *idx = i - l->pl_count;
+    return ROW_DIR;
+  }
+  *idx = i - l->pl_count - l->dir_count;
+  return ROW_SONG;
+}
+
+static bool
+row_valid(const RowList *l, int i) {
+  return i >= 0 && i < l->count;
+}
+
+static int
+row_label(const RowList *l, int i, char *buf, size_t size) {
+  const Song *song;
+  int idx;
+
+  switch (row_kind(l, i, &idx)) {
+    case ROW_PLAYLIST:
+      snprintf(buf, size, "P %s", l->pls->items[idx].name);
+      return STYLE_TITLE;
+    case ROW_DIR:
+      snprintf(buf, size, "D %s", l->dirs->items[idx].name);
+      return STYLE_ARTIST;
+  }
+
+  song = &l->songs->items[idx];
+  snprintf(buf, size, "S %s", song->title[0] ? song->title : song->uri);
+  return STYLE_DEFAULT;
+}
+
+static RowList
+browser_center(void) {
+  if (browser.playlist[0] != '\0')
+    return row_list(NULL, NULL, &browser.pl_songs, &browser.pl_view);
+  return row_list(browser.path[0] == '\0' ? mpd_playlists() : NULL,
+                  &browser.dirs, &browser.songs, &browser.view);
+}
+
+static RowList
+browser_context(void) {
+  if (browser.playlist[0] != '\0')
+    return row_list(mpd_playlists(), &browser.dirs, &browser.songs,
+                    NULL);
+  return row_list(NULL, &browser.parent_dirs, &browser.parent_songs,
+                  NULL);
+}
+
+static int
+browser_context_sel(void) {
+  return browser.playlist[0] != '\0' ? browser.view.cursor
+  : browser.parent_sel;
+}
 
 static void
 draw_song_list(WINDOW *win, const SongList *list, ListView *view,
@@ -1274,14 +1380,21 @@ lyrics_active(void) {
   return tab_active(draw_lyrics);
 }
 
-static int
-browser_count(void) {
-  return browser.dirs.count + browser.songs.count;
+static bool
+playlist_exists(const char *name) {
+  const PlaylistList *pls = mpd_playlists();
+  int i;
+
+  for (i = 0; i < pls->count; i++)
+    if (strcmp(pls->items[i].name, name) == 0)
+      return true;
+  return false;
 }
 
 static void
 browser_load(void) {
-  int i, n;
+  RowList center;
+  int i;
 
   mpd_browse(browser.path, &browser.dirs, &browser.songs);
   browser.loaded = true;
@@ -1311,21 +1424,29 @@ browser_load(void) {
     browser.parent_songs.count = 0;
   }
 
+  if (browser.playlist[0] != '\0') {
+    if (mpd_connected() && !playlist_exists(browser.playlist))
+      browser.playlist[0] = '\0';
+    else
+      mpd_playlist_songs(browser.playlist, &browser.pl_songs);
+  }
+
+  center = browser_center();
+
   if (browser.restore_path[0] != '\0') {
     for (i = 0; i < browser.dirs.count; i++)
       if (strcmp(browser.dirs.items[i].path,
                  browser.restore_path) == 0) {
-        browser.view.cursor = i;
+        browser.view.cursor = center.pl_count + i;
         break;
       }
     browser.restore_path[0] = '\0';
   }
 
-  n = browser_count();
-  if (browser.view.cursor >= n)
-    browser.view.cursor = n > 0 ? n - 1 : 0;
-  if (browser.view.cursor < 0)
-    browser.view.cursor = 0;
+  if (center.view->cursor >= center.count)
+    center.view->cursor = center.count > 0 ? center.count - 1 : 0;
+  if (center.view->cursor < 0)
+    center.view->cursor = 0;
 }
 
 static void
@@ -1337,35 +1458,65 @@ browser_invalidate(void) {
 
 static const char *
 browser_selected_uri(void) {
-  int i = browser.view.cursor - browser.dirs.count;
+  RowList l = browser_center();
+  int idx;
 
-  if (i >= 0 && i < browser.songs.count)
-    return browser.songs.items[i].uri;
-  return NULL;
+  if (!row_valid(&l, l.view->cursor) ||
+    row_kind(&l, l.view->cursor, &idx) != ROW_SONG)
+    return NULL;
+  return l.songs->items[idx].uri;
 }
 
 static const char *
 browser_hovered_dir(void) {
-  if (browser.view.cursor < browser.dirs.count)
-    return browser.dirs.items[browser.view.cursor].path;
-  return NULL;
+  RowList l = browser_center();
+  int idx;
+
+  if (!row_valid(&l, l.view->cursor) ||
+    row_kind(&l, l.view->cursor, &idx) != ROW_DIR)
+    return NULL;
+  return l.dirs->items[idx].path;
+}
+
+static const char *
+browser_hovered_playlist(void) {
+  RowList l = browser_center();
+  int idx;
+
+  if (!row_valid(&l, l.view->cursor) ||
+    row_kind(&l, l.view->cursor, &idx) != ROW_PLAYLIST)
+    return NULL;
+  return l.pls->items[idx].name;
 }
 
 static void
 browser_sync_preview(void) {
-  const char *p = browser_hovered_dir();
+  const char *playlist = browser_hovered_playlist();
+  const char *dir = browser_hovered_dir();
+  char want[600];
 
-  if (p == NULL) {
+  if (playlist != NULL)
+    snprintf(want, sizeof(want), "P %s", playlist);
+  else if (dir != NULL)
+    snprintf(want, sizeof(want), "D %s", dir);
+  else {
     browser.preview_path[0] = '\0';
     browser.preview_dirs.count = 0;
     browser.preview.count = 0;
     return;
   }
-  if (strcmp(p, browser.preview_path) != 0) {
-    mpd_browse(p, &browser.preview_dirs, &browser.preview);
-    snprintf(browser.preview_path, sizeof(browser.preview_path),
-             "%s", p);
+
+  if (strcmp(want, browser.preview_path) == 0)
+    return;
+
+  if (playlist != NULL) {
+    browser.preview_dirs.count = 0;
+    mpd_playlist_songs(playlist, &browser.preview);
+  } else {
+    mpd_browse(dir, &browser.preview_dirs, &browser.preview);
   }
+  snprintf(browser.preview_path, sizeof(browser.preview_path), "%s",
+           want);
 }
 
 static void
@@ -1394,22 +1545,22 @@ browser_ensure_loaded(void) {
 
 static void
 browser_move(int delta) {
-  int n = browser_count();
+  RowList l = browser_center();
 
-  if (n == 0)
+  if (l.count == 0)
     return;
-  browser.view.cursor += delta;
-  if (browser.view.cursor < 0)
-    browser.view.cursor = 0;
-  if (browser.view.cursor >= n)
-    browser.view.cursor = n - 1;
+  l.view->cursor += delta;
+  if (l.view->cursor < 0)
+    l.view->cursor = 0;
+  if (l.view->cursor >= l.count)
+    l.view->cursor = l.count - 1;
 }
 
 static void
 browser_edge(bool bottom) {
-  int n = browser_count();
+  RowList l = browser_center();
 
-  browser.view.cursor = bottom ? (n > 0 ? n - 1 : 0) : 0;
+  l.view->cursor = bottom ? (l.count > 0 ? l.count - 1 : 0) : 0;
 }
 
 static void
@@ -1442,25 +1593,69 @@ browser_up(void) {
 }
 
 static void
-browser_enter(void) {
-  if (browser.view.cursor < browser.dirs.count) {
-    browser_descend(browser.dirs.items[browser.view.cursor].path);
-  } else {
-    int i = browser.view.cursor - browser.dirs.count;
+browser_open_playlist(const char *name) {
+  snprintf(browser.playlist, sizeof(browser.playlist), "%s", name);
+  mpd_playlist_songs(name, &browser.pl_songs);
+  browser.pl_view.cursor = browser.pl_view.offset = 0;
+  marks_clear(&browser.pl_view);
+  browser.preview_path[0] = '\0';
+  browser.info_uri[0] = '\0';
+}
 
-    if (i < browser.songs.count)
-      queue_add_and_play(browser.songs.items[i].uri);
+static void
+browser_close_playlist(void) {
+  browser.playlist[0] = '\0';
+  browser.pl_songs.count = 0;
+  marks_clear(&browser.pl_view);
+  browser.preview_path[0] = '\0';
+  browser.info_uri[0] = '\0';
+}
+
+static void
+browser_enter(void) {
+  RowList l = browser_center();
+  int idx;
+
+  if (!row_valid(&l, l.view->cursor))
+    return;
+
+  switch (row_kind(&l, l.view->cursor, &idx)) {
+    case ROW_PLAYLIST:
+      browser_open_playlist(l.pls->items[idx].name);
+      break;
+    case ROW_DIR:
+      browser_descend(l.dirs->items[idx].path);
+      break;
+    default:
+      queue_add_and_play(l.songs->items[idx].uri);
+      break;
   }
 }
 
 static void
 browser_nav_right(void) {
-  if (browser.view.cursor < browser.dirs.count)
-    browser_descend(browser.dirs.items[browser.view.cursor].path);
+  RowList l = browser_center();
+  int idx;
+
+  if (!row_valid(&l, l.view->cursor))
+    return;
+
+  switch (row_kind(&l, l.view->cursor, &idx)) {
+    case ROW_PLAYLIST:
+      browser_open_playlist(l.pls->items[idx].name);
+      break;
+    case ROW_DIR:
+      browser_descend(l.dirs->items[idx].path);
+      break;
+  }
 }
 
 static void
 browser_nav_left(void) {
+  if (browser.playlist[0] != '\0') {
+    browser_close_playlist();
+    return;
+  }
   browser_up();
 }
 
@@ -1513,13 +1708,12 @@ browser_row(WINDOW *win, int row, int x, int w, const char *text, int slot,
 
 static void
 draw_browser_left(WINDOW *win, int x, int w, int height) {
-  int dcount = browser.parent_dirs.count;
-  int n = dcount + browser.parent_songs.count;
-  int sel = browser.parent_sel;
+  RowList l = browser_context();
+  int sel = browser_context_sel();
   int r;
 
   browser.parent_off = scroll_offset(sel >= 0 ? sel : 0,
-                                     browser.parent_off, n, height);
+                                     browser.parent_off, l.count, height);
 
   for (r = 0; r < height; r++) {
     int i = browser.parent_off + r;
@@ -1527,22 +1721,10 @@ draw_browser_left(WINDOW *win, int x, int w, int height) {
     int slot;
     bool here;
 
-    if (i >= n)
+    if (i >= l.count)
       break;
 
-    if (i < dcount) {
-      snprintf(buf, sizeof(buf), "D %s",
-               browser.parent_dirs.items[i].name);
-      slot = STYLE_ARTIST;
-    } else {
-      const Song *s =
-        &browser.parent_songs.items[i - dcount];
-
-      snprintf(buf, sizeof(buf), "S %s",
-               s->title[0] ? s->title : s->uri);
-      slot = STYLE_DEFAULT;
-    }
-
+    slot = row_label(&l, i, buf, sizeof(buf));
     here = i == sel;
     browser_row(win, r, x, w, buf, slot, here, 0, here);
   }
@@ -1550,36 +1732,24 @@ draw_browser_left(WINDOW *win, int x, int w, int height) {
 
 static void
 draw_browser_mid(WINDOW *win, int x, int w, int height) {
-  int dcount = browser.dirs.count;
-  int n = browser_count();
+  RowList l = browser_center();
   int r;
 
-  marks_sync(&browser.view, n);
-  browser.view.offset = scroll_offset(browser.view.cursor,
-                                      browser.view.offset, n, height);
+  marks_sync(l.view, l.count);
+  l.view->offset = scroll_offset(l.view->cursor, l.view->offset,
+                                 l.count, height);
 
   for (r = 0; r < height; r++) {
-    int i = browser.view.offset + r;
+    int i = l.view->offset + r;
     char buf[600];
     int slot, sel, marked;
 
-    if (i >= n)
+    if (i >= l.count)
       break;
 
-    if (i < dcount) {
-      snprintf(buf, sizeof(buf), "D %s",
-               browser.dirs.items[i].name);
-      slot = STYLE_ARTIST;
-    } else {
-      const Song *s = &browser.songs.items[i - dcount];
-
-      snprintf(buf, sizeof(buf), "S %s",
-               s->title[0] ? s->title : s->uri);
-      slot = STYLE_DEFAULT;
-    }
-
-    sel = i == browser.view.cursor;
-    marked = browser.view.marked != NULL && browser.view.marked[i];
+    slot = row_label(&l, i, buf, sizeof(buf));
+    sel = i == l.view->cursor;
+    marked = l.view->marked != NULL && l.view->marked[i];
     browser_row(win, r, x, w, buf, slot, sel, marked, 0);
   }
 }
@@ -1607,32 +1777,23 @@ draw_browser_field(WINDOW *win, int *row, int x, int w, const char *label,
 
 static void
 draw_browser_preview_list(WINDOW *win, int *row, int x, int w, int height,
-                          const DirList *dirs, const SongList *songs) {
+                          const RowList *l) {
   int i;
 
-  for (i = 0; i < dirs->count && *row < height; i++) {
+  for (i = 0; i < l->count && *row < height; i++) {
     char buf[600];
+    int slot = row_label(l, i, buf, sizeof(buf));
 
-    snprintf(buf, sizeof(buf), "D %s", dirs->items[i].name);
-    style_on(win, STYLE_ARTIST);
+    style_on(win, slot);
     draw_text(win, (*row)++, x + 1, w - 1, buf);
-    style_off(win, STYLE_ARTIST);
-  }
-  for (i = 0; i < songs->count && *row < height; i++) {
-    const Song *s = &songs->items[i];
-    char buf[514];
-
-    snprintf(buf, sizeof(buf), "S %s",
-             s->title[0] ? s->title : s->uri);
-    style_on(win, STYLE_DEFAULT);
-    draw_text(win, (*row)++, x + 1, w - 1, buf);
-    style_off(win, STYLE_DEFAULT);
+    style_off(win, slot);
   }
 }
 
 static void
 draw_browser_info(WINDOW *win, int x, int w, int height) {
   const SongInfo *in = &browser.info;
+  RowList preview;
   char dur[16];
   int row = 0;
 
@@ -1674,15 +1835,16 @@ draw_browser_info(WINDOW *win, int x, int w, int height) {
   draw_text(win, row++, x + 1, w - 1, "[Preview]");
   style_off(win, STYLE_COLUMN_HEADER);
 
-  if (browser.preview_dirs.count == 0 && browser.preview.count == 0) {
+  preview = row_list(NULL, &browser.preview_dirs, &browser.preview, NULL);
+
+  if (preview.count == 0) {
     style_on(win, STYLE_TAB);
     draw_text(win, row, x + 1, w - 1, "empty");
     style_off(win, STYLE_TAB);
     return;
   }
 
-  draw_browser_preview_list(win, &row, x, w, height,
-                            &browser.preview_dirs, &browser.preview);
+  draw_browser_preview_list(win, &row, x, w, height, &preview);
 }
 
 void
@@ -1713,9 +1875,8 @@ draw_browse(WINDOW *win) {
 
 static void
 cursor_repaint(void) {
-  ui_redraw(REDRAW_ALL);
+  ui_redraw(REDRAW_KEYPRESS);
 }
-
 
 enum {
   SF_ANY,
@@ -2180,57 +2341,47 @@ song_matches(const Song *s, const char *q) {
   contains_ci(s->album, q);
 }
 
-typedef struct {
-  ListView *view;
-  int count;
-  const SongList *songs;
-  const DirList *dirs;
-  int dir_count;
-} Focus;
-
 static bool
-focus_get(Focus *f) {
+focus_get(RowList *f) {
   const SongList *list;
   ListView *v;
 
   if (browse_active()) {
-    f->view = &browser.view;
-    f->count = browser_count();
-    f->songs = &browser.songs;
-    f->dirs = &browser.dirs;
-    f->dir_count = browser.dirs.count;
+    *f = browser_center();
     return true;
   }
   if (search_active()) {
     if (search.focus != 1)
       return false;
-    f->view = &search.view;
-    f->count = search.results.count;
-    f->songs = &search.results;
-    f->dirs = NULL;
-    f->dir_count = 0;
+    *f = row_list(NULL, NULL, &search.results, &search.view);
     return true;
   }
+
+  /* a patch tab with a list adds its guarded block here,
+   * see docs/patches.md */
+
   v = active_view(&list);
   if (v == NULL)
     return false;
-  f->view = v;
-  f->count = list->count;
-  f->songs = list;
-  f->dirs = NULL;
-  f->dir_count = 0;
+  *f = row_list(NULL, NULL, list, v);
   return true;
 }
 
 static bool
-focus_matches(const Focus *f, int i, const char *q) {
-  if (i < f->dir_count)
-    return contains_ci(f->dirs->items[i].name, q);
-  return song_matches(&f->songs->items[i - f->dir_count], q);
+focus_matches(const RowList *f, int i, const char *q) {
+  int idx;
+
+  switch (row_kind(f, i, &idx)) {
+    case ROW_PLAYLIST:
+      return contains_ci(f->pls->items[idx].name, q);
+    case ROW_DIR:
+      return contains_ci(f->dirs->items[idx].name, q);
+  }
+  return song_matches(&f->songs->items[idx], q);
 }
 
 static int
-focus_scan(const Focus *f, const char *q, int from, int dir) {
+focus_scan(const RowList *f, const char *q, int from, int dir) {
   int n = f->count;
   int step;
 
@@ -2246,16 +2397,23 @@ focus_scan(const Focus *f, const char *q, int from, int dir) {
 }
 
 static void
-focus_enqueue(const Focus *f, int i) {
-  if (i < f->dir_count)
-    queue_add(f->dirs->items[i].path);
-  else
-    queue_add(f->songs->items[i - f->dir_count].uri);
+focus_enqueue(const RowList *f, int i) {
+  int idx;
+
+  switch (row_kind(f, i, &idx)) {
+    case ROW_PLAYLIST:
+      playlist_load(f->pls->items[idx].name);
+      return;
+    case ROW_DIR:
+      queue_add(f->dirs->items[idx].path);
+      return;
+  }
+  queue_add(f->songs->items[idx].uri);
 }
 
 void
 add_to_queue(const Arg *arg) {
-  Focus f;
+  RowList f;
   bool any;
   int i;
 
@@ -2274,6 +2432,367 @@ add_to_queue(const Arg *arg) {
     marks_clear(f.view);
 }
 
+enum {
+  PROMPT_PICK,
+  PROMPT_NAME,
+};
+
+#define PROMPT_NEW_LABEL "Create new playlist"
+
+static struct {
+  bool active;
+  int mode;
+
+  char **uris;
+  int count;
+  int cap;
+  bool from_marks;
+
+  int cursor; /* row in the pick list, 0 is PROMPT_NEW_LABEL */
+  int offset;
+  int page;
+
+  char name[256];
+} prompt;
+
+bool
+playlist_prompt_active(void) {
+  return prompt.active;
+}
+
+static int
+prompt_rows(void) {
+  if (prompt.mode != PROMPT_PICK)
+    return 1;
+  return 1 + mpd_playlists()->count;
+}
+
+static const char *
+prompt_title(void) {
+  if (prompt.mode == PROMPT_NAME)
+    return "New playlist";
+  return "Add to playlist";
+}
+
+static const char *
+prompt_line(int i, char *buf, size_t size) {
+  if (prompt.mode == PROMPT_NAME)
+    snprintf(buf, size, "%s_", prompt.name);
+  else if (i == 0)
+    snprintf(buf, size, "%s", PROMPT_NEW_LABEL);
+  else
+    snprintf(buf, size, "P %s", mpd_playlists()->items[i - 1].name);
+  return buf;
+}
+
+static void
+prompt_geometry(int screen_h, int screen_w, int *h, int *w) {
+  int rows = prompt_rows();
+  int want = text_width(prompt_title()) + 4;
+  int i, visible;
+
+  for (i = 0; i < rows; i++) {
+    char buf[300];
+    int n = text_width(prompt_line(i, buf, sizeof(buf))) + 4;
+
+    if (n > want)
+      want = n;
+  }
+  if (prompt.mode == PROMPT_NAME && want < 40)
+    want = 40; /* room to type into */
+  if (want < 24)
+    want = 24;
+  if (want > screen_w - 2)
+    want = screen_w - 2;
+
+  visible = rows;
+  if (visible > screen_h - 4)
+    visible = screen_h - 4;
+  if (visible < 1)
+    visible = 1;
+
+  *h = visible + 2;
+  *w = want > 4 ? want : 4;
+}
+
+static void
+place_prompt(void) {
+  int screen_h, screen_w, h, w;
+
+  if (!prompt.active) {
+    hide_panel(prompt_panel);
+    return;
+  }
+
+  getmaxyx(stdscr, screen_h, screen_w);
+  prompt_geometry(screen_h, screen_w, &h, &w);
+
+  place(prompt_panel, &prompt_window,
+        (Rect){ (screen_h - h) / 2, (screen_w - w) / 2, h, w });
+}
+
+static void
+draw_prompt(void) {
+  WINDOW *win = prompt_window;
+  int h = getmaxy(win), w = getmaxx(win);
+  int visible = h - 2;
+  int rows = prompt_rows();
+  char buf[300];
+  int r;
+
+  style_on(win, STYLE_BORDER_FOCUSED);
+  box(win, 0, 0);
+  style_off(win, STYLE_BORDER_FOCUSED);
+
+  snprintf(buf, sizeof(buf), " %s ", prompt_title());
+  style_on(win, STYLE_COLUMN_HEADER);
+  draw_text_centered(win, 0, 1, w - 2, buf);
+  style_off(win, STYLE_COLUMN_HEADER);
+
+  if (visible < 1)
+    return;
+
+  if (prompt.mode != PROMPT_PICK) {
+    style_on(win, STYLE_DEFAULT);
+    draw_text(win, 1, 2, w - 3, prompt_line(0, buf, sizeof(buf)));
+    style_off(win, STYLE_DEFAULT);
+    return;
+  }
+
+  prompt.page = visible;
+  prompt.offset = scroll_offset(prompt.cursor, prompt.offset, rows,
+                                visible);
+
+  for (r = 0; r < visible; r++) {
+    int i = prompt.offset + r;
+    int slot;
+
+    if (i >= rows)
+      break;
+
+    prompt_line(i, buf, sizeof(buf));
+    if (i == prompt.cursor)
+      slot = STYLE_ACTIVE;
+    else
+      slot = i == 0 ? STYLE_COLUMN_HEADER : STYLE_TITLE;
+
+    style_on(win, slot);
+    draw_text(win, r + 1, 2, w - 3, buf);
+    style_off(win, slot);
+  }
+}
+
+static void
+prompt_open(int mode) {
+  prompt.active = true;
+  prompt.mode = mode;
+  prompt.cursor = prompt.offset = 0;
+  apply_layout();
+  ui_redraw(REDRAW_ALL);
+}
+
+static void
+prompt_close(void) {
+  int i;
+
+  for (i = 0; i < prompt.count; i++)
+    free(prompt.uris[i]);
+  free(prompt.uris);
+  prompt.uris = NULL;
+  prompt.count = prompt.cap = 0;
+  prompt.from_marks = false;
+  prompt.name[0] = '\0';
+  prompt.active = false;
+
+  apply_layout();
+  clearok(curscr, TRUE);
+  ui_redraw(REDRAW_ALL);
+}
+
+static bool
+prompt_push_uri(const char *uri) {
+  char *copy;
+
+  if (prompt.count == prompt.cap) {
+    int cap = prompt.cap ? prompt.cap * 2 : 16;
+    char **items = realloc(prompt.uris, (size_t)cap * sizeof(*items));
+
+    if (items == NULL)
+      return false;
+    prompt.uris = items;
+    prompt.cap = cap;
+  }
+
+  copy = strdup(uri);
+  if (copy == NULL)
+    return false;
+  prompt.uris[prompt.count++] = copy;
+  return true;
+}
+
+/* mpd creates name when it does not exist, so this both adds to an existing
+ * playlist and makes a new one */
+static void
+prompt_commit(const char *name) {
+  RowList f;
+  int i;
+
+  for (i = 0; i < prompt.count; i++)
+    playlist_add(name, prompt.uris[i]);
+
+  if (prompt.from_marks && focus_get(&f))
+    marks_clear(f.view);
+
+  mpd_invalidate_playlists();
+  browser_invalidate();
+  prompt_close();
+}
+
+void
+add_to_playlist(const Arg *arg) {
+  RowList f;
+  bool any;
+  int i;
+
+  (void)arg;
+  if (prompt.active || !focus_get(&f) || f.count == 0)
+    return;
+  marks_sync(f.view, f.count);
+
+  any = f.view->marked != NULL && f.view->marked_count > 0;
+  for (i = 0; i < f.count; i++) {
+    int idx, kind;
+
+    if (any ? !f.view->marked[i] : i != f.view->cursor)
+      continue;
+
+    kind = row_kind(&f, i, &idx);
+    if (kind == ROW_PLAYLIST)
+      continue;
+
+    prompt_push_uri(kind == ROW_DIR ? f.dirs->items[idx].path
+                    : f.songs->items[idx].uri);
+  }
+
+  if (prompt.count == 0)
+    return;
+
+  prompt.from_marks = any;
+  prompt.name[0] = '\0';
+  prompt_open(PROMPT_PICK);
+}
+
+static bool
+prompt_key_is(int key, int arrow, void (*action)(const Arg *), int i) {
+  int bound = key_for_action_i(action, i);
+
+  return key == arrow || (bound >= 0 && key == bound);
+}
+
+static void
+prompt_name_key(int key) {
+  int len = (int)strlen(prompt.name);
+
+  if (key == 27) {
+    prompt_open(PROMPT_PICK);
+    return;
+  }
+  if (key == '\n' || key == '\r' || key == KEY_ENTER) {
+    if (prompt.name[0] != '\0')
+      prompt_commit(prompt.name);
+    return;
+  }
+  if (key == KEY_BACKSPACE || key == 127 || key == 8) {
+    if (len > 0)
+      prompt.name[len - 1] = '\0';
+  } else if (key >= 32 && key < 127 &&
+    len < (int)sizeof(prompt.name) - 1) {
+    prompt.name[len] = (char)key;
+    prompt.name[len + 1] = '\0';
+  } else {
+    return;
+  }
+  ui_redraw(REDRAW_KEYPRESS);
+}
+
+void
+playlist_prompt_key(int key) {
+  int rows;
+
+  if (prompt.mode == PROMPT_NAME) {
+    prompt_name_key(key);
+    return;
+  }
+
+  if (key == 27) {
+    prompt_close();
+    return;
+  }
+  if (key == '\n' || key == '\r' || key == KEY_ENTER) {
+    if (prompt.cursor == 0)
+      prompt_open(PROMPT_NAME);
+    else
+      prompt_commit(
+        mpd_playlists()->items[prompt.cursor - 1].name);
+    return;
+  }
+
+  rows = prompt_rows();
+  if (prompt_key_is(key, KEY_DOWN, cursor_move, 1))
+    prompt.cursor++;
+  else if (prompt_key_is(key, KEY_UP, cursor_move, -1))
+    prompt.cursor--;
+  else if (prompt_key_is(key, KEY_NPAGE, cursor_page, 1))
+    prompt.cursor += prompt.page > 0 ? prompt.page : 1;
+  else if (prompt_key_is(key, KEY_PPAGE, cursor_page, -1))
+    prompt.cursor -= prompt.page > 0 ? prompt.page : 1;
+  else if (prompt_key_is(key, KEY_HOME, cursor_edge, -1))
+    prompt.cursor = 0;
+  else if (prompt_key_is(key, KEY_END, cursor_edge, 1))
+    prompt.cursor = rows - 1;
+  else
+    return;
+
+  if (prompt.cursor >= rows)
+    prompt.cursor = rows - 1;
+  if (prompt.cursor < 0)
+    prompt.cursor = 0;
+  ui_redraw(REDRAW_KEYPRESS);
+}
+
+static void
+browse_delete(void) {
+  RowList l = browser_center();
+  int idx, i;
+
+  if (!row_valid(&l, l.view->cursor))
+    return;
+
+  if (browser.playlist[0] == '\0') {
+    if (row_kind(&l, l.view->cursor, &idx) != ROW_PLAYLIST)
+      return;
+    playlist_remove(l.pls->items[idx].name);
+    mpd_invalidate_playlists();
+    browser_invalidate();
+    cursor_repaint();
+    return;
+  }
+
+  marks_sync(l.view, l.count);
+  if (l.view->marked != NULL && l.view->marked_count > 0) {
+    for (i = l.count - 1; i >= 0; i--)
+      if (l.view->marked[i])
+        playlist_delete_pos(browser.playlist, i);
+    marks_clear(l.view);
+  } else {
+    playlist_delete_pos(browser.playlist, l.view->cursor);
+  }
+
+  mpd_invalidate_playlists();
+  browser_invalidate();
+  cursor_repaint();
+}
+
 void
 delete_selected(const Arg *arg) {
   const SongList *list;
@@ -2281,8 +2800,10 @@ delete_selected(const Arg *arg) {
   int i;
 
   (void)arg;
-  if (browse_active())
+  if (browse_active()) {
+    browse_delete();
     return;
+  }
 
   view = active_view(&list);
   if (view == NULL || list->count == 0)
@@ -2304,7 +2825,7 @@ delete_selected(const Arg *arg) {
 
 void
 select_item(const Arg *arg) {
-  Focus f;
+  RowList f;
   int c;
 
   (void)arg;
@@ -2333,7 +2854,7 @@ find_active(void) {
 
 void
 filter_results(const Arg *arg) {
-  Focus f;
+  RowList f;
 
   (void)arg;
   if (!focus_get(&f))
@@ -2346,7 +2867,7 @@ filter_results(const Arg *arg) {
 
 void
 find_input(int key) {
-  Focus f;
+  RowList f;
   int len, hit;
 
   if (!focus_get(&f)) {
@@ -2387,7 +2908,7 @@ find_input(int key) {
 
 void
 find_next(const Arg *arg) {
-  Focus f;
+  RowList f;
   int hit;
 
   (void)arg;
@@ -2402,7 +2923,7 @@ find_next(const Arg *arg) {
 
 void
 find_prev(const Arg *arg) {
-  Focus f;
+  RowList f;
   int hit;
 
   (void)arg;

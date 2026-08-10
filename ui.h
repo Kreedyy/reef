@@ -6,6 +6,24 @@
 #include "theme.h"
 #include "types.h"
 
+/* cursor is the selected row, offset is the first row on screen,
+ * page remembers how many rows fit, so page-wise scrolling can
+ * work from a keybind that has no access to the window. Each scrollable pane
+ * keeps its own, so switching tabs does not lose your place.
+ * 
+ * A patch tab that wants find/filter functionality keeps one of these,
+ * see docs/patches.md */
+typedef struct {
+  int cursor;
+  int offset;
+  int page;
+
+  int *marked; /* per item multi-selection marks */
+  int marked_cap;
+  int marked_count;
+  int marked_for; /* the list count the marks are valid for (-1 = stale) */
+} ListView;
+
 void init_ncurses(void);
 void destroy_ncurses(void);
 void resize(void);
@@ -20,6 +38,7 @@ void focus_tab_by_key(int key);
 
 void play_selected(const Arg *arg);
 void add_to_queue(const Arg *arg);
+void add_to_playlist(const Arg *arg);
 void delete_selected(const Arg *arg);
 void select_item(const Arg *arg);
 void filter_results(const Arg *arg);
@@ -31,6 +50,9 @@ void find_input(int key);
 
 bool search_edit_active(void);
 void search_edit_key(int key);
+
+bool playlist_prompt_active(void);
+void playlist_prompt_key(int key);
 
 /* if your patch needs to move a cursor, add an ifdef guard
  * for your patch within these navigation functions */

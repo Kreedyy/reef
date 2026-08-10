@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 
 #include "mpd.h"
@@ -17,7 +18,8 @@ static struct mpd_connection *mpd_idle;
 
 static const enum mpd_idle idle_mask = MPD_IDLE_PLAYER | MPD_IDLE_MIXER |
   MPD_IDLE_QUEUE | MPD_IDLE_DATABASE |
-  MPD_IDLE_OPTIONS;
+  MPD_IDLE_OPTIONS |
+  MPD_IDLE_STORED_PLAYLIST;
 
 static struct {
   int volume;
@@ -48,6 +50,9 @@ static bool queue_loaded;
 
 static SongList library;
 static bool library_loaded;
+
+static PlaylistList playlists;
+static bool playlists_loaded;
 
 static unsigned long
 mono_ms(void) {
@@ -113,6 +118,9 @@ clear_status(void) {
 
   library.count = 0;
   library_loaded = false;
+
+  playlists.count = 0;
+  playlists_loaded = false;
 }
 
 static void
@@ -264,6 +272,105 @@ mpd_library(void) {
 void
 mpd_invalidate_library(void) {
   library_loaded = false;
+}
+
+static Playlist *
+playlists_push(PlaylistList *list) {
+  if (list->count == list->cap) {
+    int cap = list->cap ? list->cap * 2 : 16;
+    Playlist *items =
+      realloc(list->items, (size_t)cap * sizeof(*items));
+
+    if (items == NULL)
+      return NULL;
+
+    list->items = items;
+    list->cap = cap;
+  }
+  return &list->items[list->count++];
+}
+
+static int
+playlist_cmp(const void *a, const void *b) {
+  return strcasecmp(((const Playlist *)a)->name,
+                    ((const Playlist *)b)->name);
+}
+
+static void
+load_playlists(void) {
+  struct mpd_playlist *pl;
+
+  playlists.count = 0;
+
+  if (mpd == NULL)
+    return;
+
+  if (!mpd_send_list_playlists(mpd)) {
+    check_conn(mpd);
+    return;
+  }
+
+  while ((pl = mpd_recv_playlist(mpd)) != NULL) {
+    Playlist *slot = playlists_push(&playlists);
+
+    if (slot != NULL)
+      snprintf(slot->name, sizeof(slot->name), "%s",
+               mpd_playlist_get_path(pl));
+
+    mpd_playlist_free(pl);
+  }
+
+  if (!mpd_response_finish(mpd))
+    check_conn(mpd);
+
+  if (playlists.count > 1)
+    qsort(playlists.items, (size_t)playlists.count,
+          sizeof(*playlists.items), playlist_cmp);
+
+  playlists_loaded = true;
+}
+
+const PlaylistList *
+mpd_playlists(void) {
+  if (mpd != NULL && !playlists_loaded)
+    load_playlists();
+  return &playlists;
+}
+
+void
+mpd_invalidate_playlists(void) {
+  playlists_loaded = false;
+}
+
+void
+mpd_playlist_songs(const char *name, SongList *out) {
+  struct mpd_song *song;
+
+  out->count = 0;
+
+  if (mpd == NULL || name == NULL)
+    return;
+
+  if (!mpd_send_list_playlist_meta(mpd, name)) {
+    check_conn(mpd);
+    return;
+  }
+
+  while ((song = mpd_recv_song(mpd)) != NULL) {
+    Song *slot = songlist_push(out);
+
+    if (slot != NULL) {
+      song_from_mpd(slot, song);
+
+      slot->id = -1;
+      slot->pos = out->count - 1;
+    }
+
+    mpd_song_free(song);
+  }
+
+  if (!mpd_response_finish(mpd))
+    check_conn(mpd);
 }
 
 static Dir *
@@ -900,6 +1007,42 @@ queue_delete_id(int id) {
 }
 
 void
+playlist_add(const char *name, const char *uri) {
+  if (mpd == NULL || name == NULL || uri == NULL || name[0] == '\0')
+    return;
+
+  mpd_run_playlist_add(mpd, name, uri);
+  check_conn(mpd);
+}
+
+void
+playlist_delete_pos(const char *name, int pos) {
+  if (mpd == NULL || name == NULL || name[0] == '\0' || pos < 0)
+    return;
+
+  mpd_run_playlist_delete(mpd, name, (unsigned)pos);
+  check_conn(mpd);
+}
+
+void
+playlist_remove(const char *name) {
+  if (mpd == NULL || name == NULL || name[0] == '\0')
+    return;
+
+  mpd_run_rm(mpd, name);
+  check_conn(mpd);
+}
+
+void
+playlist_load(const char *name) {
+  if (mpd == NULL || name == NULL || name[0] == '\0')
+    return;
+
+  mpd_run_load(mpd, name);
+  check_conn(mpd);
+}
+
+void
 clear_queue(const Arg *arg) {
   (void)arg;
   if (mpd == NULL)
@@ -993,4 +1136,7 @@ destroy_mpd(void) {
   free(library.items);
   library.items = NULL;
   library.cap = library.count = 0;
+  free(playlists.items);
+  playlists.items = NULL;
+  playlists.cap = playlists.count = 0;
 }

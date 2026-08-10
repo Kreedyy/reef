@@ -192,6 +192,13 @@ handle_key(int input) {
   }
 #endif
 
+  if (playlist_prompt_active()) {
+    playlist_prompt_key(input);
+    update_panels();
+    doupdate();
+    ui_redraw(REDRAW_KEYPRESS);
+    return;
+  }
   if (search_edit_active()) {
     search_edit_key(input);
     update_panels();

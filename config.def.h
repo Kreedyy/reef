@@ -20,10 +20,12 @@
 
 static const Pane tabs[] = {
   /* name     draw              redraw on */
-  { "Queue",  draw_now_playing, REDRAW_PLAYER | REDRAW_QUEUE },
-  { "Browse", draw_browse,      REDRAW_DATABASE },  
-  { "Search", draw_search,      REDRAW_DATABASE },
-  { "Lyrics", draw_lyrics,      REDRAW_PLAYER | REDRAW_TICK },
+  { "Queue",  draw_now_playing, REDRAW_PLAYER   | REDRAW_QUEUE |
+    REDRAW_KEYPRESS },
+  { "Browse", draw_browse,      REDRAW_DATABASE | REDRAW_KEYPRESS },
+  { "Search", draw_search,      REDRAW_DATABASE | REDRAW_KEYPRESS },
+  { "Lyrics", draw_lyrics,      REDRAW_PLAYER   | REDRAW_TICK |
+    REDRAW_KEYPRESS },
 
 #ifdef PATCH_lrclib
   LRCLIB_TABS
@@ -133,6 +135,7 @@ static const Keybind keybinds[] = {
   { '\n',      play_selected,   {0} }, /* play highlighted */
   { KEY_ENTER, play_selected,   {0} },
   { 'a',       add_to_queue,    {0} }, /* add highlighted to queue */
+  { 'A',       add_to_playlist, {0} }, /* add highlighted to a playlist */
   { 'd',       delete_selected, {0} }, /* remove highlighted */
   { KEY_DC,    delete_selected, {0} },
   { 'C',       clear_queue,     {0} }, /* clear queue */

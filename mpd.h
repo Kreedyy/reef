@@ -63,6 +63,16 @@ typedef struct {
 } DirList;
 
 typedef struct {
+  char name[256];
+} Playlist;
+
+typedef struct {
+  Playlist *items;
+  int count;
+  int cap;
+} PlaylistList;
+
+typedef struct {
   char uri[512];
   char title[256];
   char artist[256];
@@ -87,6 +97,15 @@ void mpd_browse(const char *path, DirList *dirs, SongList *songs);
 bool mpd_song_info(const char *uri, SongInfo *out);
 void mpd_free_dirlist(DirList *list);
 
+/* the stored playlists, sorted by name. Reloaded when mpd reports that
+ * one was created, changed or removed */
+const PlaylistList *mpd_playlists(void);
+void mpd_invalidate_playlists(void);
+
+/* a stored playlist's songs. Each item's pos is its index within the playlist,
+ * which is what playlist_delete_pos() addresses */
+void mpd_playlist_songs(const char *name, SongList *out);
+
 const char *mpd_music_directory(void);
 
 typedef struct {
@@ -108,6 +127,12 @@ void queue_add(const char *uri);
 void queue_add_and_play(const char *uri);
 void queue_play_id(int id);
 void queue_delete_id(int id);
+
+/* uri may name a song or a directory */
+void playlist_add(const char *name, const char *uri);
+void playlist_delete_pos(const char *name, int pos);
+void playlist_remove(const char *name);
+void playlist_load(const char *name); /* append it to the queue */
 
 bool init_mpd(void);
 bool mpd_connected(void);
