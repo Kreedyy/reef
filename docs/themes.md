@@ -2,13 +2,14 @@
 
 Layouts reference slots by name, so any theme works with any layout.
 
-Select one from `config.h`:
+Select one in `config.h`, all themes are in [themes](../themes):
 
     #include "themes/reef.h"
 
 - `reef.h` Signature theme by [Kreedy](https://git.gay/kreedy)
 - `ncmpcpp.h` [ncmpcpp](https://github.com/ncmpcpp/ncmpcpp) clone
 - `rmpc.h` [rmpc](https://github.com/mierak/rmpc) clone
+- `rose.h` pink-ish theme
 
 ## The colors
 
