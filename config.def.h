@@ -63,7 +63,7 @@ static const char *const lyrics_directory = ".lrc";
  * options: 0 = off, 1 = on */
 #define SHOW_KEYBIND_BAR 1
 
-#define KEYBIND_BAR_MAX_ROWS 2
+#define KEYBIND_BAR_MAX_ROWS 3
 
 /* gap between columns inside the Queue tab */
 #define QUEUE_COLUMN_GAP 2
