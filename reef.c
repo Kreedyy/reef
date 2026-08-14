@@ -119,7 +119,7 @@ main(int argc, char *argv[]) {
   upgrade_truecolor();
   init_ncurses();
   init_keybinds();
-  lyrics_init();
+  init_lyrics();
 #ifdef PATCH_http
   http_init();
 #endif

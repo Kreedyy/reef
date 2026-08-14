@@ -25,7 +25,7 @@ bool lyrics_save(const char *artist, const char *title, const char *text,
 
 /* patches should not touch these */
 
-void lyrics_init(void);
+void init_lyrics(void);
 
 void lyrics_prefetch(void);
 

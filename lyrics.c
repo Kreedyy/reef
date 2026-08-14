@@ -560,7 +560,7 @@ lyrics_set_provider(LyricsProvider fn) {
 }
 
 void
-lyrics_init(void) {
+init_lyrics(void) {
 #ifdef PATCH_lrclib
   lyrics_set_provider(lrclib_provider);
 #endif
