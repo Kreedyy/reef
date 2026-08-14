@@ -82,8 +82,10 @@ rmpc_header(WINDOW *win)
   album_string = get_album()[0]    ? get_album()
     : show_album_text ? "Unknown Album"
     : "";
-  snprintf(album, sizeof(album), show_album_text ? "(%s)" : "",
-      album_string);
+  if (show_album_text)
+    snprintf(album, sizeof(album), "(%s)", album_string);
+  else
+    album[0] = '\0';
   style_on(win, STYLE_ALBUM);
   draw_text_centered(win, 2, mid_x, mid_w, album);
   style_off(win, STYLE_ALBUM);
