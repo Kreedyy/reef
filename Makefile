@@ -11,6 +11,9 @@ SRC = reef.c mpd.c ui.c keybinds.c lyrics.c
 OBJ = $(SRC:.c=.o)
 DEP = $(OBJ:.o=.d)
 
+DBGOBJ = $(SRC:.c=.dbg.o)
+DBGDEP = $(DBGOBJ:.o=.d)
+
 LAYOUTS = $(wildcard layouts/*.h)
 
 INCS = -I.
@@ -24,12 +27,23 @@ REEFCFLAGS   = -std=c99 -pedantic -Wall -Wextra -Wstrict-prototypes \
 							 -O2 $(INCS) $(PKG_INCS) $(REEFCPPFLAGS) $(CFLAGS)
 LDLIBS     = $(PKG_LIBS)
 
+SANFLAGS = -fsanitize=address,undefined -fno-sanitize-recover=all \
+					 -fno-omit-frame-pointer -g -O0
+
+DBGDEFS = -DREEF_DEBUG
+
 all: reef
 
 reef: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LDFLAGS) $(LDLIBS)
 
+debug: reef-debug
+
+reef-debug: $(DBGOBJ)
+	$(CC) -o $@ $(DBGOBJ) $(SANFLAGS) $(LDFLAGS) $(LDLIBS)
+
 $(OBJ): config.h config.mk config.local.mk version.mk
+$(DBGOBJ): config.h config.mk config.local.mk version.mk
 
 GIT = git -c safe.directory="$(CURDIR)"
 
@@ -66,10 +80,10 @@ config.h:
 config.local.mk:
 	@printf '%s\n' \
 		'# Enable patches by name here, matching the directory under patches/' \
-		'PATCHES = remote ' > $@
+		'PATCHES = remote' > $@
 
 clean:
-	rm -f reef $(OBJ) $(DEP) patches/*/*.o patches/*/*.d version.mk version.mk.tmp
+	rm -f reef reef-debug debug.log $(OBJ) $(DEP) $(DBGOBJ) $(DBGDEP) patches/*/*.o patches/*/*.d version.mk version.mk.tmp
 
 install: all
 	mkdir -p $(PREFIX)/bin
@@ -83,6 +97,10 @@ uninstall:
 .c.o:
 	$(CC) -c $(REEFCFLAGS) -o $@ $<
 
-.PHONY: all clean install uninstall FORCE
+%.dbg.o: %.c
+	$(CC) -c $(REEFCFLAGS) $(SANFLAGS) $(DBGDEFS) -o $@ $<
+
+.PHONY: all debug clean install uninstall FORCE
 
 -include $(DEP)
+-include $(DBGDEP)

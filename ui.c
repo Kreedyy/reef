@@ -2004,7 +2004,7 @@ draw_search_results(WINDOW *win, int x, int w, int height) {
   for (r = 0; r < height; r++) {
     int i = search.view.offset + r;
     const Song *s;
-    char buf[261]; /* suppress warning with <261 */
+    char buf[516];
     bool sel, marked;
 
     if (i >= n)

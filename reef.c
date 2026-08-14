@@ -29,6 +29,31 @@
 
 #define RECONNECT_MS 200
 
+#ifdef REEF_DEBUG
+/* point stderr at debug.log before curses starts */
+static void
+debug_log_init(void) {
+  if (!freopen("debug.log", "w", stderr))
+    return;
+  setvbuf(stderr, NULL, _IONBF, 0);
+}
+
+const char *__ubsan_default_options(void);
+const char *__asan_default_options(void);
+
+const char *
+__ubsan_default_options(void) {
+  return "print_stacktrace=1";
+}
+
+const char *
+__asan_default_options(void) {
+  return "fast_unwind_on_malloc=0"
+    ":malloc_context_size=50"
+    ":detect_stack_use_after_return=1";
+}
+#endif
+
 enum {
   POLL_STDIN,
   POLL_MPD,
@@ -75,6 +100,10 @@ int
 main(int argc, char *argv[]) {
   struct pollfd fds[POLL_COUNT + HTTP_MAX_FDS];
   int timeout, nfds, ready, ch;
+
+#ifdef REEF_DEBUG
+  debug_log_init();
+#endif
 
   if (argc > 1 && (strcmp(argv[1], "-v") == 0 ||
     strcmp(argv[1], "--version") == 0)) {

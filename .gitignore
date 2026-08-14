@@ -3,5 +3,7 @@
 config.h
 config.local.mk
 reef
+reef-debug
 build.log
+debug.log
 version.mk
