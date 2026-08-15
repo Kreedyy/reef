@@ -10,6 +10,7 @@
 #include <wchar.h>
 
 #include "config.h"
+#include "cred.h"
 #include "keybinds.h"
 #include "layout.h"
 #include "lyrics.h"
@@ -263,6 +264,8 @@ style_off(WINDOW *win, int slot) {
   wattr_off(win, style(slot), NULL);
 }
 
+static bool ncurses_active = false;
+
 void
 init_ncurses(void) {
   int i;
@@ -270,6 +273,7 @@ init_ncurses(void) {
   setlocale(LC_ALL, "");
 
   initscr();
+  ncurses_active = true;
   init_theme();
   cbreak();
   noecho();
@@ -307,6 +311,90 @@ init_ncurses(void) {
 void
 destroy_ncurses(void) {
   endwin();
+  ncurses_active = false;
+}
+
+#define CRED_TIMEOUT_MS 1000
+
+#define CRED_SLOTS 4
+
+static struct {
+  const char *cmd;
+  unsigned long asked_at;
+  bool tty_spent;
+  bool exhausted;
+} cred_slots[CRED_SLOTS];
+
+static unsigned long
+ui_mono_ms(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (unsigned long)ts.tv_sec * 1000 +
+  (unsigned long)ts.tv_nsec / 1000000;
+}
+
+static int
+cred_slot(const char *cmd, unsigned long now) {
+  int i, oldest = 0;
+
+  for (i = 0; i < CRED_SLOTS; i++) {
+    if (cred_slots[i].cmd != NULL && strcmp(cred_slots[i].cmd, cmd) == 0) {
+      if (now - cred_slots[i].asked_at > CRED_TIMEOUT_MS) {
+        cred_slots[i].tty_spent = false;
+        cred_slots[i].exhausted = false;
+      }
+      return i;
+    }
+  }
+
+  for (i = 1; i < CRED_SLOTS; i++)
+    if (cred_slots[i].asked_at < cred_slots[oldest].asked_at)
+      oldest = i;
+
+  cred_slots[oldest].cmd = cmd;
+  cred_slots[oldest].tty_spent = false;
+  cred_slots[oldest].exhausted = false;
+  return oldest;
+}
+
+static bool cred_busy = false;
+
+char *
+ui_cred_get(const char *cmd) {
+  char *secret;
+  bool needs_tty = false;
+  int slot;
+
+  if (cmd == NULL || cmd[0] == '\0')
+    return NULL;
+
+  if (cred_busy)
+    return NULL;
+
+  slot = cred_slot(cmd, ui_mono_ms());
+  cred_busy = true;
+
+  if (!ncurses_active) {
+    cred_slots[slot].tty_spent = true;
+    secret = cred_get(cmd);
+  } else if (cred_slots[slot].exhausted) {
+    secret = NULL;
+  } else {
+    secret = cred_get_notty(cmd, &needs_tty);
+    if (secret == NULL && needs_tty && !cred_slots[slot].tty_spent) {
+      cred_slots[slot].tty_spent = true;
+      endwin();
+      secret = cred_get(cmd);
+      clearok(curscr, TRUE);
+      ui_redraw(REDRAW_ALL);
+    }
+  }
+
+  cred_slots[slot].exhausted = secret == NULL;
+
+  cred_slots[slot].asked_at = ui_mono_ms();
+  cred_busy = false;
+  return secret;
 }
 
 

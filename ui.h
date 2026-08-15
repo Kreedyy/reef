@@ -28,6 +28,12 @@ void init_ncurses(void);
 void destroy_ncurses(void);
 void resize(void);
 
+/* this will try to fetch quietly first and only give the terminal to the
+ * password manager if needed (for cli/tui), repaints reef after.
+ * Patches should most likely use this, it's meant to be used after ncurses
+ * has already started. Free result with cred_free() after use */
+char *ui_cred_get(const char *cmd);
+
 /* repaint every bar and pane whose redraw condition overlaps with flags arg */
 void ui_redraw(unsigned flags);
 void ui_on_mpd_events(enum mpd_idle events);

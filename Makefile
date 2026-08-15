@@ -7,7 +7,7 @@ include config.mk
 VERSION ?= unknown
 
 
-SRC = reef.c mpd.c ui.c keybinds.c lyrics.c
+SRC = reef.c mpd.c ui.c keybinds.c lyrics.c cred.c
 OBJ = $(SRC:.c=.o)
 DEP = $(OBJ:.o=.d)
 

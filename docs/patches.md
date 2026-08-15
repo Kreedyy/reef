@@ -308,6 +308,30 @@ This is because ncurses' count bytes and not columns, which makes special
 characters overflow when disagreeing with terminal.  
 The exported functions from `ui.h` aim to solve this.
 
+## Credentials
+
+Fetch with `ui_cred_get()` and free with `cred_free()`:
+
+```c
+/* config.def.h */
+#ifdef PATCH_login
+static const char *const login_password_cmd = NULL;
+#endif
+
+/* login.c */
+char *pw = ui_cred_get(login_password_cmd);
+
+if (pw == NULL)
+  return;
+
+login_send(pw);
+cred_free(pw);
+```
+
+We do not want to store credentials, so free as soon as you are done.  
+A value other than `NULL` only means the command printed something, not that it works.  
+If the service rejects it, reporting it is your job.
+
 ## Updating a patch
 
 Open an issue or PR mentioning the patch's author for further discussion.

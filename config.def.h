@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 
+#include "cred.h"
 #include "keybinds.h"
 #include "layout.h"
 #include "lyrics.h"
@@ -58,6 +59,19 @@ static const int padding_right = 1;
  * not report it; an absolute path or ~/path is used as-is.
  * default: ".lrc" */
 static const char *const lyrics_directory = ".lrc";
+
+/* you decide how to store your passwords, reef will parse
+ * the first line of the output:
+ *
+ *  "pass show reef/mpd"
+ *  "keepassxc-cli show -a Password ~/db.kdbx 'entry name'"
+ *  "gpg -dq ~/.config/reef/mpd.gpg"
+ *  "cat ~/.config/reef/mpd"
+ *
+ *  mpd_password_cmd = "keepassxc-cli show -a Password ~/db.kdbx 'entry name'";
+ */
+
+static const char *const mpd_password_cmd = NULL;
 
 /* default: 1
  * options: 0 = off, 1 = on */

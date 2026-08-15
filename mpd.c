@@ -9,8 +9,11 @@
 #include <strings.h>
 #include <time.h>
 
+#include "config.h"
+#include "cred.h"
 #include "mpd.h"
 #include "types.h"
+#include "ui.h"
 
 struct mpd_connection *mpd;
 
@@ -695,6 +698,31 @@ check_conn(struct mpd_connection *conn) {
   return true;
 }
 
+static bool
+mpd_authenticate(void) {
+  char *pw;
+  bool ok = false;
+
+  if (mpd_password_cmd == NULL || mpd_password_cmd[0] == '\0')
+    return true;
+
+  pw = ui_cred_get(mpd_password_cmd);
+  if (pw == NULL) {
+    set_error("password command gave nothing");
+    return false;
+  }
+
+  if (!mpd_run_password(mpd, pw))
+    set_error(mpd_connection_get_error_message(mpd));
+  else if (!mpd_run_password(mpd_idle, pw))
+    set_error(mpd_connection_get_error_message(mpd_idle));
+  else
+    ok = true;
+
+  cred_free(pw);
+  return ok;
+}
+
 bool
 init_mpd(void) {
   enum mpd_error err;
@@ -732,6 +760,11 @@ init_mpd(void) {
     mpd_connection_get_error(mpd_idle) != MPD_ERROR_SUCCESS) {
     set_error(mpd_idle ? mpd_connection_get_error_message(mpd_idle)
               : "out of memory");
+    mpd_drop_connection();
+    return false;
+  }
+
+  if (!mpd_authenticate()) {
     mpd_drop_connection();
     return false;
   }
