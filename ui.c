@@ -282,6 +282,7 @@ init_ncurses(void) {
   set_escdelay(25);
   mouseinterval(0);
   curs_set(0);
+  mousemask(ALL_MOUSE_EVENTS, NULL);
 
   for (i = 0; i < BAR_COUNT; i++) {
     bar_windows[i] = newwin(1, 1, 0, 0);
