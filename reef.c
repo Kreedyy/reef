@@ -96,6 +96,11 @@ upgrade_truecolor(void) {
   setenv("TERM", direct, 1);
 }
 
+static void
+print_patches(void) {
+  printf("patches: %s\n", REEF_PATCHES[0] ? REEF_PATCHES : "");
+}
+
 int
 main(int argc, char *argv[]) {
   struct pollfd fds[POLL_COUNT + HTTP_MAX_FDS];
@@ -108,10 +113,13 @@ main(int argc, char *argv[]) {
   if (argc > 1 && (strcmp(argv[1], "-v") == 0 ||
     strcmp(argv[1], "--version") == 0)) {
 #ifdef PATCH_remote
-    if (remote_print_version())
+    if (remote_print_version()) {
+      print_patches();
       return 0;
+    }
 #endif
     printf("reef %s  remote: false\n", VERSION);
+    print_patches();
     return 0;
   }
 
