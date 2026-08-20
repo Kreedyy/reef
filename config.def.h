@@ -92,8 +92,8 @@ static const int delta_volume = 5;
 
 /* if you wish to create your own layout, consult docs/layouts.md
  * Feel free to submit your custom layout
- * default: rmpc
- * options: rmpc, ncmpcpp */
+ * default: rmpc.h
+ * options: rmpc.h, ncmpcpp.h */
 #include "layouts/rmpc.h"
 
 /* if you wish to create your own theme, consult docs/themes.md
