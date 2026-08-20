@@ -61,6 +61,7 @@ Default install path is `/usr/local/bin/` so make sure it is in your PATH.
 - Add mouse click support
 - Album art patch
 - Visualizer patch
+- Improve documentation and comments
 
 ### Documentation
 - [Themes](docs/themes.md)
@@ -73,6 +74,6 @@ Each item takes precedence over the ones before it:
 - Tab = 2 spaces
 - Use the `#pragma once` guard
 - Use the `bool` type
-- Indent `case`s inside a `switch`
+- Indent `case` inside a `switch`
 
 Match the codebase if anything else was missed.
