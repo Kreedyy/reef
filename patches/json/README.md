@@ -180,7 +180,7 @@ json_escape(artist, eartist, sizeof(eartist));
 
 /* lyrics are the field big enough to actually overflow, so check that one */
 if (json_escape(lyrics, elyrics, sizeof(elyrics)) >= sizeof(elyrics))
-  return;   /* truncated, and half a value is not worth sending */
+  return;   /* truncated, half a value is not worth sending */
 
 snprintf(body, sizeof(body),
          "{\"trackName\":\"%s\",\"artistName\":\"%s\","
@@ -195,7 +195,9 @@ http_post(url, body, headers, on_done, req);
 
 ```json
 {
-  "trackName":"filthy yet so pretty","artistName":"aeter","duration":200,
+  "trackName":"filthy yet so pretty",
+  "artistName":"aeter",
+  "duration":200,
   "syncedLyrics":"[00:07.27] Filthier, filthier\n[00:10.85] Dead, and I shouldn’t check"
 }
 ```
