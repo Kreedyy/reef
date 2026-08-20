@@ -53,7 +53,9 @@ includes any new changes from `config.def.h` by running:
 Installing:  
 `make install`
 
-Default install path is `/usr/local/bin/` so make sure it is in your PATH.
+Default install path is `/usr/local/bin/` so make sure it is in your PATH.  
+This can be changed with `PREFIX=`:  
+`make PREFIX=/usr/bin install`
 
 ## Contributing
 
