@@ -25,10 +25,12 @@ PATCHNAMES = $(patsubst -DPATCH_%,%,$(filter -DPATCH_%,$(PATCHDEFS)))
 
 REEFCPPFLAGS = -D_POSIX_C_SOURCE=200809L -DVERSION="\"$(VERSION)\"" \
 							 -DREEF_PATCHES="\"$(PATCHNAMES)\"" $(PATCHDEFS)
-REEFCFLAGS   = -std=c99 -pedantic -Wall -Wextra -Wstrict-prototypes \
-							 -Werror=implicit -Werror=return-type -MMD -MP \
-							 -O2 $(INCS) $(PKG_INCS) $(REEFCPPFLAGS) $(CFLAGS)
-LDLIBS     = $(PKG_LIBS)
+
+REEFCFLAGS = -std=c99 -pedantic -Wall -Wextra -Wstrict-prototypes \
+						 -Werror=implicit -Werror=return-type -MMD -MP \
+						 -O2 $(INCS) $(PKG_INCS) $(REEFCPPFLAGS) $(CFLAGS)
+
+LDLIBS = $(PKG_LIBS)
 
 SANFLAGS = -fsanitize=address,undefined -fno-sanitize-recover=all \
 					 -fno-omit-frame-pointer -g -O0
