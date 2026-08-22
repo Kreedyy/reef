@@ -57,14 +57,16 @@ void lrclib_solve_cancel(void);
 #define LRCLIB_TABS \
 { "Sync", draw_lrclib_sync, REDRAW_FOCUS | REDRAW_KEYPRESS },
 
+#define KEY_ESC 27
+
 static const Keybind lrclib_keybinds[] = {
-  /* key  function       argument */
-  { 'i',  lrclib_set_insert_mode,   { .b = true  } },
-  {  27,  lrclib_set_insert_mode,   { .b = false } },
-  { 'C',  lrclib_clear,             {0} },
-  { 'S',  lrclib_save_lrc,          {0} },
-  { 'U',  lrclib_publish_current,   {0} },
-  { ' ',  lrclib_sync_line,         {0} },
+  /* key       function                  argument */
+  { 'i',       lrclib_set_insert_mode,   { .b = true  } },
+  {  KEY_ESC,  lrclib_set_insert_mode,   { .b = false } },
+  { 'C',       lrclib_clear,             {0} },
+  { 'S',       lrclib_save_lrc,          {0} },
+  { 'U',       lrclib_publish_current,   {0} },
+  { ' ',       lrclib_sync_line,         {0} },
 };
 
 #define LRCLIB_KEYBINDS \
