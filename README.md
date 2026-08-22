@@ -32,7 +32,6 @@ Base Dependencies:
 `ncurses`  
 `libmpdclient`  
 `libutf8proc`  
-`libcurl`  
 
 First build run:  
 `make`
