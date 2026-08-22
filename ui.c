@@ -21,6 +21,8 @@
 
 #define LENGTH(X) (sizeof(X) / sizeof((X)[0]))
 
+#define KEY_ESC 27
+
 #define BAR_COUNT ((int)LENGTH(bars))
 #define TAB_COUNT ((int)LENGTH(tabs))
 
@@ -1070,7 +1072,7 @@ key_label(int key) {
       return "Ins";
     case KEY_BTAB:
       return "S-Tab";
-    case 27:
+    case KEY_ESC:
       return "Esc";
   }
   if (key > ' ' && key < 0x7f) {
@@ -2147,7 +2149,7 @@ search_edit_key(int key) {
   char *field = search.text[search.cursor];
   int len = (int)strlen(field);
 
-  if (key == 27 || key == '\n' || key == '\r' || key == KEY_ENTER) {
+  if (key == KEY_ESC || key == '\n' || key == '\r' || key == KEY_ENTER) {
     search.editing = false;
     search_run();
     cursor_repaint();
@@ -2782,7 +2784,7 @@ static void
 prompt_name_key(int key) {
   int len = (int)strlen(prompt.name);
 
-  if (key == 27) {
+  if (key == KEY_ESC) {
     prompt_open(PROMPT_PICK);
     return;
   }
@@ -2813,7 +2815,7 @@ playlist_prompt_key(int key) {
     return;
   }
 
-  if (key == 27) {
+  if (key == KEY_ESC) {
     prompt_close();
     return;
   }
@@ -2964,7 +2966,7 @@ find_input(int key) {
     return;
   }
 
-  if (key == 27) {
+  if (key == KEY_ESC) {
     find_mode = false;
     if (find_origin < f.count)
       f.view->cursor = find_origin;
