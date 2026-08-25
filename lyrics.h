@@ -29,6 +29,8 @@ void init_lyrics(void);
 
 void lyrics_prefetch(void);
 
+int lyrics_next_line_in(void);
+
 void lyrics_scroll(int delta);
 void lyrics_scroll_edge(int bottom);
 int lyrics_page_rows(void);

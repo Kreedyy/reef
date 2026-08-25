@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <term.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "keybinds.h"
@@ -25,7 +26,7 @@
 #include "remote.h"
 #endif
 
-#define TICK_MS 250
+#define TICK_MS 50
 
 #define RECONNECT_MS 200
 
@@ -96,6 +97,22 @@ upgrade_truecolor(void) {
   setenv("TERM", direct, 1);
 }
 
+static unsigned long
+mono_ms(void) {
+  struct timespec ts;
+
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (unsigned long)ts.tv_sec * 1000 +
+  (unsigned long)ts.tv_nsec / 1000000;
+}
+
+static int
+due_in(unsigned long from, unsigned long period) {
+  unsigned long waited = mono_ms() - from;
+
+  return waited >= period ? 0 : (int)(period - waited);
+}
+
 static void
 print_patches(void) {
   printf("patches: %s\n", REEF_PATCHES[0] ? REEF_PATCHES : "");
@@ -105,6 +122,7 @@ int
 main(int argc, char *argv[]) {
   struct pollfd fds[POLL_COUNT + HTTP_MAX_FDS];
   int timeout, nfds, ready, ch;
+  unsigned long last_tick, last_attempt, redraw_at;
 
 #ifdef REEF_DEBUG
   debug_log_init();
@@ -135,6 +153,8 @@ main(int argc, char *argv[]) {
   fds[POLL_MPD].fd = mpd_idle_fd();
   fds[POLL_MPD].events = POLLIN;
 
+  last_tick = last_attempt = redraw_at = mono_ms();
+
   while (running) {
     fds[POLL_MPD].fd = mpd_idle_fd();
 #ifdef PATCH_lrclib
@@ -142,12 +162,18 @@ main(int argc, char *argv[]) {
     fds[POLL_LRCLIB].events = POLLIN;
 #endif
 
-    if (!mpd_connected())
-      timeout = RECONNECT_MS;
-    else if (is_playing())
-      timeout = TICK_MS;
-    else
+    if (!mpd_connected()) {
+      timeout = due_in(last_attempt, RECONNECT_MS);
+    } else if (is_playing()) {
+      int line = lyrics_next_line_in();
+
+      timeout = due_in(last_tick, TICK_MS);
+      if (line >= 0 && line < timeout)
+        timeout = line;
+      redraw_at = mono_ms() + (unsigned long)timeout;
+    } else {
       timeout = -1;
+    }
 
     nfds = POLL_COUNT;
 #ifdef PATCH_http
@@ -168,14 +194,18 @@ main(int argc, char *argv[]) {
         mpd_refresh_status();
         ui_on_mpd_events(events);
       }
-    } else if (ready == 0 && !mpd_connected()) {
+    } else if (!mpd_connected() &&
+      mono_ms() - last_attempt >= RECONNECT_MS) {
+      last_attempt = mono_ms();
       if (init_mpd()) {
         mpd_refresh_status();
         ui_redraw(REDRAW_ALL);
       } else if (mpd_error_active()) {
         ui_redraw(REDRAW_PLAYER);
       }
-    } else if (ready == 0 && is_playing()) {
+    } else if (is_playing() && mono_ms() >= redraw_at) {
+      last_tick = mono_ms();
+      mpd_resync_elapsed();
       ui_redraw(REDRAW_TICK);
     }
 

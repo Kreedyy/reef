@@ -145,5 +145,6 @@ enum mpd_state get_player_state(void);
 int mpd_idle_fd(void);
 enum mpd_idle mpd_drain_events(void);
 void mpd_refresh_status(void);
+void mpd_resync_elapsed(void);
 
 void mpd_drop_connection(void);

@@ -227,6 +227,28 @@ current_line(void) {
   return idx >= 0 ? idx : first;
 }
 
+/* main loop asks how long it may sleep before the synced line is due rather
+ * than ticking fast enough to happen to notice. -1 means nothing is pending
+ * and the ordinary tick is all that is needed */
+int
+lyrics_next_line_in(void) {
+  long elapsed, soonest = -1;
+  int i;
+
+  if (!synced || line_count == 0)
+    return -1;
+
+  elapsed = (long)get_elapsed_ms();
+  for (i = 0; i < line_count; i++) {
+    if (lines[i].time_ms < 0 || lines[i].time_ms <= elapsed)
+      continue;
+    if (soonest < 0 || lines[i].time_ms < soonest)
+      soonest = lines[i].time_ms;
+  }
+
+  return soonest < 0 ? -1 : (int)(soonest - elapsed);
+}
+
 static void
 sanitize(char *dst, const char *src, size_t cap) {
   size_t i = 0;

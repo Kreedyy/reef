@@ -45,6 +45,8 @@ static bool mpd_ok = false;
 static unsigned long disconnected_at;
 #define MPD_ERROR_GRACE_MS 500
 
+#define MPD_TIMEOUT_MS 2000
+
 /* cached listings, reloaded lazily.
  * See mpd_queue()/mpd_library() */
 static SongList queue;
@@ -65,7 +67,13 @@ mono_ms(void) {
   (unsigned long)ts.tv_nsec / 1000000;
 }
 
+#define ELAPSED_RESYNC_MS 1000
+#define ELAPSED_SETTLE_MS 250
+#define ELAPSED_SETTLE_FOR_MS 2000
+#define ELAPSED_JUMP_MS 100
+
 static unsigned long elapsed_synced_at;
+static unsigned long elapsed_settling_until;
 
 static const char *
 mpd_server_error_name(enum mpd_server_error error) {
@@ -544,7 +552,7 @@ mpd_music_directory(void) {
     cands[n++] = home_sock;
 
   for (i = 0; i < n && dir[0] == '\0'; i++) {
-    struct mpd_connection *c = mpd_connection_new(cands[i], 0, 0);
+    struct mpd_connection *c = mpd_connection_new(cands[i], 0, MPD_TIMEOUT_MS);
 
     if (c == NULL)
       continue;
@@ -730,7 +738,7 @@ init_mpd(void) {
   mpd_drop_connection();
   mpd_error_buf[0] = '\0';
 
-  mpd = mpd_connection_new(NULL, 0, 0);
+  mpd = mpd_connection_new(NULL, 0, MPD_TIMEOUT_MS);
   if (mpd == NULL) {
     set_error("out of memory");
     return false;
@@ -755,7 +763,7 @@ init_mpd(void) {
     return false;
   }
 
-  mpd_idle = mpd_connection_new(NULL, 0, 0);
+  mpd_idle = mpd_connection_new(NULL, 0, MPD_TIMEOUT_MS);
   if (mpd_idle == NULL ||
     mpd_connection_get_error(mpd_idle) != MPD_ERROR_SUCCESS) {
     set_error(mpd_idle ? mpd_connection_get_error_message(mpd_idle)
@@ -798,15 +806,27 @@ mpd_drain_events(void) {
   return events;
 }
 
+static bool
+elapsed_moved(unsigned expected, unsigned reported) {
+  unsigned gap = reported > expected ? reported - expected :
+    expected - reported;
+
+  return gap > ELAPSED_JUMP_MS;
+}
+
 void
 mpd_refresh_status(void) {
   struct mpd_status *status;
+  enum mpd_state previous_state;
+  unsigned expected;
   int previous_song_id;
 
   if (mpd == NULL)
     return;
 
   previous_song_id = st.song_id;
+  previous_state = st.state;
+  expected = get_elapsed_ms();
 
   status = mpd_run_status(mpd);
   if (status == NULL) {
@@ -830,8 +850,30 @@ mpd_refresh_status(void) {
 
   elapsed_synced_at = mono_ms();
 
+  if (st.state == MPD_STATE_PLAY &&
+    (previous_state != MPD_STATE_PLAY ||
+    elapsed_moved(expected, st.elapsed_ms)))
+    elapsed_settling_until = elapsed_synced_at + ELAPSED_SETTLE_FOR_MS;
+
   if (st.song_id != previous_song_id)
     refresh_song_tags();
+}
+
+void
+mpd_resync_elapsed(void) {
+  unsigned long now, interval;
+
+  if (mpd == NULL || st.state != MPD_STATE_PLAY)
+    return;
+
+  now = mono_ms();
+  interval = now < elapsed_settling_until ? ELAPSED_SETTLE_MS :
+    ELAPSED_RESYNC_MS;
+
+  if (now - elapsed_synced_at < interval)
+    return;
+
+  mpd_refresh_status();
 }
 
 bool
