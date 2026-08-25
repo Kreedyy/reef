@@ -113,12 +113,10 @@ main(int argc, char *argv[]) {
   if (argc > 1 && (strcmp(argv[1], "-v") == 0 ||
     strcmp(argv[1], "--version") == 0)) {
 #ifdef PATCH_remote
-    if (remote_print_version()) {
-      print_patches();
-      return 0;
-    }
-#endif
+    remote_print_version();
+#else
     printf("reef %s  remote: false\n", VERSION);
+#endif
     print_patches();
     return 0;
   }

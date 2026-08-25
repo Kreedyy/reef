@@ -1,4 +1,5 @@
 #include <poll.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +27,7 @@ typedef struct {
   bool done;
   int behind;
   char tip[SHORT + 1];
+  uint status;
 } Result;
 
 static long long
@@ -69,6 +71,7 @@ on_commits(const HttpResponse *resp, void *user) {
   char total[16], sha[64];
   Result *res = user;
   long behind;
+  res->status = resp->status;
 
   res->done = true;
   if (!resp->ok || resp->status != 200)
@@ -93,17 +96,21 @@ on_commits(const HttpResponse *resp, void *user) {
 
 bool
 remote_print_version(void) {
-  Result res = { false, REMOTE_UNKNOWN, { '\0' } };
+  Result res = { false, REMOTE_UNKNOWN, { '\0' }, 0 };
   const char *ahead = REMOTE_AHEAD;
   long long deadline;
   int behind;
 
-  if (REMOTE_BASECOUNT[0] == '\0')
+  if (REMOTE_BASECOUNT[0] == '\0') {
+    printf("reef %s  remote: invalid local version (no git repo at compile time)?\n", VERSION);
     return false;
+  }
 
   if (!http_get(API "/repos/" REPO "/commits?sha=" REMOTE_BRANCH
-                "&limit=1&stat=false&files=false", NULL, on_commits, &res))
+                "&limit=1&stat=false&files=false", NULL, on_commits, &res)) {
+    printf("reef %s  remote: failed to connect\n", VERSION);
     return false;
+  }
 
   deadline = now_ms() + TIMEOUT_MS;
   while (!res.done) {
@@ -121,8 +128,15 @@ remote_print_version(void) {
 
   http_cleanup();
 
-  if (res.behind == REMOTE_UNKNOWN || res.tip[0] == '\0')
+  if (res.behind == REMOTE_UNKNOWN) {
+    printf("reef %s  remote: connection timed out\n", VERSION);
     return false;
+  }
+
+  if (res.tip[0] == '\0') {
+    printf("reef %s  remote: server answered %d\n", VERSION, res.status);
+    return false;
+  }
 
   behind = res.behind;
   if (same_commit(res.tip, REMOTE_LOCAL)) {
