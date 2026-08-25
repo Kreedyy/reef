@@ -14,7 +14,7 @@
 #define API    "https://git.gay/api/v1"
 #define REPO   "Kreedy/reef"
 
-#define TIMEOUT_MS 3000
+#define TIMEOUT_MS 10000
 
 #define MAX_FDS 8
 
