@@ -47,8 +47,8 @@ debug: reef-debug
 reef-debug: $(DBGOBJ)
 	$(CC) -o $@ $(DBGOBJ) $(SANFLAGS) $(LDFLAGS) $(LDLIBS)
 
-$(OBJ): config.h config.mk config.local.mk version.mk
-$(DBGOBJ): config.h config.mk config.local.mk version.mk
+$(OBJ): config.h config.mk config.patch.mk version.mk
+$(DBGOBJ): config.h config.mk config.patch.mk version.mk
 
 GIT = git -c safe.directory="$(CURDIR)"
 
@@ -82,7 +82,7 @@ FORCE:
 config.h:
 	cp config.def.h $@
 
-config.local.mk:
+config.patch.mk:
 	@printf '%s\n' \
 		'# Enable patches by name here, matching the directory under patches/' \
 		'PATCHES = remote' > $@

@@ -36,9 +36,9 @@ Base Dependencies:
 First build run:  
 `make`
 
-This will create `config.h` and `config.local.mk` for you to modify.
+This will create `config.h` and `config.patch.mk` for you to modify.
 
-To add patches edit the `config.local.mk` file.  
+To add patches edit the `config.patch.mk` file.  
 A patch may pull in extra dependencies it relies on.
 
 If the program fails to build after adding a patch try running:  

@@ -12,4 +12,4 @@ PREFIX = /usr/local
 
 CC = cc
 
--include config.local.mk
+-include config.patch.mk

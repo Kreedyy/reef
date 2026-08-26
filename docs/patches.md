@@ -1,7 +1,7 @@
 # Patches
 
 A patch is a directory under `patches/` plus a `config.mk`.  
-Enable patches in `config.local.mk`, which `make` creates for you on the first build.
+Enable patches in `config.patch.mk`, which `make` creates for you on the first build.
 
 Each name pulls in `patches/<name>/config.mk`, and that file is what defines
 `-DPATCH_<name>` for everyone else to test against.  

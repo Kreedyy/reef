@@ -19,7 +19,7 @@ contribute extra tabs.
 
 To understand how this works, change layout to `#include "layouts/example.h"`
 and rebuild. After you've seen how it tiles tabs,  
-try enabling the `example` patch in `config.local.mk` and rebuilding again.
+try enabling the `example` patch in `config.patch.mk` and rebuilding again.
 
 ### bars[]
 
