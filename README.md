@@ -59,6 +59,7 @@ This can be changed with `PREFIX`:
 ## Contributing
 
 ### Recommended
+- Themes
 - Add mouse click support
 - Album art patch
 - Visualizer patch
