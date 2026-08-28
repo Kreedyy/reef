@@ -891,6 +891,11 @@ mpd_error(void) {
   return mpd_error_buf;
 }
 
+static void
+resync_after_move(void) {
+  mpd_refresh_status();
+}
+
 void
 play_next(const Arg *arg) {
   (void)arg;
@@ -899,6 +904,7 @@ play_next(const Arg *arg) {
 
   mpd_run_next(mpd);
   check_conn(mpd);
+  resync_after_move();
 }
 
 void
@@ -915,6 +921,7 @@ play_prev(const Arg *arg) {
     mpd_run_previous(mpd);
 
   check_conn(mpd);
+  resync_after_move();
 }
 
 void
@@ -926,6 +933,7 @@ seek_seconds(const Arg *args) {
 
   mpd_run_seek_current(mpd, args->i, relative);
   check_conn(mpd);
+  resync_after_move();
 }
 
 void
@@ -944,6 +952,7 @@ toggle_pause(const Arg *arg) {
 
   mpd_run_pause(mpd, player_state == MPD_STATE_PLAY);
   check_conn(mpd);
+  resync_after_move();
 }
 
 void
@@ -1060,6 +1069,7 @@ queue_add_and_play(const char *uri) {
   if (check_conn(mpd) && id >= 0) {
     mpd_run_play_id(mpd, id);
     check_conn(mpd);
+    resync_after_move();
   }
 }
 
@@ -1070,6 +1080,7 @@ queue_play_id(int id) {
 
   mpd_run_play_id(mpd, id);
   check_conn(mpd);
+  resync_after_move();
 }
 
 void
