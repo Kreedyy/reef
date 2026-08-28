@@ -1908,7 +1908,7 @@ draw_browser_info(WINDOW *win, int x, int w, int height) {
     draw_browser_field(win, &row, x, w, "Time", dur);
 
     if (in->mtime > 0) {
-      time_t t = (time_t)in->mtime;
+      time_t t = in->mtime;
       struct tm *tmv = localtime(&t);
       if (tmv != NULL) {
         char when[64];

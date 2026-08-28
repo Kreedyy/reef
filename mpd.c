@@ -497,7 +497,7 @@ mpd_song_info(const char *uri, SongInfo *out) {
                MPD_TAG_TRACK);
 
       out->duration = mpd_song_get_duration(song);
-      out->mtime = (long)mpd_song_get_last_modified(song);
+      out->mtime = mpd_song_get_last_modified(song);
       out->valid = true;
     }
     mpd_entity_free(entity);

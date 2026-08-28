@@ -1,6 +1,7 @@
 #pragma once
 #include <mpd/client.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include "types.h"
 
@@ -82,7 +83,7 @@ typedef struct {
   char date[64];
   char track[64];
   unsigned duration;
-  long mtime; /* last modified, seconds since epoch. 0 if unknown */
+  time_t mtime; /* last modified. 0 if unknown */
   bool valid;
 } SongInfo;
 
