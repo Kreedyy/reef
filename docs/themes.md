@@ -57,7 +57,7 @@ doing i.e. `[STYLE_BORDER] = { COLOR_TITLE }`.
 These are ncurses attributes and anything ncurses defines technically works,  
 the table is just the useful subset that has been tested.
 
-`A_STANDOUT` works the same as `A_REVERSE` from my understanding and testing.
+See [attributes](https://samuallb.github.io/ncurses/NCurses/Attribute.html)
 
 ## Colors and the terminal
 
