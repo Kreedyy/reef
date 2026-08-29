@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TYPES_H
+#define TYPES_H
 
 typedef union {
   int i;
@@ -8,3 +9,5 @@ typedef union {
   const void *v;
   bool b;
 } Arg;
+
+#endif /* TYPES_H */

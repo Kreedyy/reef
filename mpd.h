@@ -1,4 +1,6 @@
-#pragma once
+#ifndef MPD_H
+#define MPD_H
+
 #include <mpd/client.h>
 #include <stdbool.h>
 #include <time.h>
@@ -149,3 +151,5 @@ void mpd_refresh_status(void);
 void mpd_resync_elapsed(void);
 
 void mpd_drop_connection(void);
+
+#endif /* MPD_H */

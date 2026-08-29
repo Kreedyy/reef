@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LAYOUT_H
+#define LAYOUT_H
 
 #include <ncurses.h>
 #include <stdbool.h>
@@ -52,3 +53,5 @@ typedef struct {
   void (*draw)(WINDOW *win);
   unsigned redraw_on;
 } Pane;
+
+#endif /* LAYOUT_H */

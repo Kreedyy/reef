@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LAYOUT_EXAMPLE_H
+#define LAYOUT_EXAMPLE_H
 
 #include <ncurses.h>
 
@@ -165,3 +166,5 @@ layout_arrange(Rect area, int active, Rect *out, int n)
       out[i] = cells[i];
   }
 }
+
+#endif /* LAYOUT_EXAMPLE_H */

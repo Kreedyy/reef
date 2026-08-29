@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATCH_JSON_H
+#define PATCH_JSON_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,3 +17,5 @@ const char *json_next_object(const char *json, const char *end,
 
 /* escapes s as a JSON string value, quotes not included */
 size_t json_escape(const char *s, char *out, size_t n);
+
+#endif /* PATCH_JSON_H */

@@ -1,4 +1,6 @@
-#pragma once
+#ifndef PATCH_LRCLIB_H
+#define PATCH_LRCLIB_H
+
 #include "types.h"
 
 void lrclib_provider(const char *artist, const char *title);
@@ -71,3 +73,5 @@ static const Keybind lrclib_keybinds[] = {
 
 #define LRCLIB_KEYBINDS \
   TAB_KEYBINDS(draw_lrclib_sync, lrclib_keybinds),
+
+#endif /* PATCH_LRCLIB_H */

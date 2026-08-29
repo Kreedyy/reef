@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATCH_HTTP_H
+#define PATCH_HTTP_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -68,3 +69,5 @@ int http_fill_pollfds(struct pollfd *fds, int max);
 int http_tune_timeout(int timeout_ms);
 
 void http_pump(void);
+
+#endif /* PATCH_HTTP_H */

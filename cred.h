@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CRED_H
+#define CRED_H
 
 #include <stdbool.h>
 
@@ -7,3 +8,5 @@ char *cred_get_notty(const char *cmd, bool *needs_tty);
 
 /* zeroes the secret before releasing it. NULL is fine */
 void cred_free(char *secret);
+
+#endif /* CRED_H */

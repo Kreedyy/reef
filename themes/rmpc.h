@@ -1,4 +1,5 @@
-#pragma once
+#ifndef THEME_RMPC_H
+#define THEME_RMPC_H
 
 /*
  * AUTHOR: Kreedy (https://git.gay/kreedy) / (https://github.com/kreedyy)
@@ -60,3 +61,5 @@ static const Style theme[STYLE_COUNT] = {
   [STYLE_HIGHLIGHT]       = { COLOR_HIGHLIGHT,       COLOR_HIGHLIGHT_BG, A_NORMAL  },
   [STYLE_ACTIVE]          = { COLOR_ACTIVE,          COLOR_ACTIVE_BG,    A_REVERSE },
 };
+
+#endif /* THEME_RMPC_H */

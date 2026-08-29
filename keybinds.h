@@ -1,4 +1,6 @@
-#pragma once
+#ifndef KEYBINDS_H
+#define KEYBINDS_H
+
 #include <ncurses.h>
 #include <stddef.h>
 
@@ -33,3 +35,5 @@ void init_keybinds(void);
 void quit(const Arg *arg);
 
 void handle_key(int input);
+
+#endif /* KEYBINDS_H */

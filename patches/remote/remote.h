@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATCH_REMOTE_H
+#define PATCH_REMOTE_H
 
 #include <stdbool.h>
 
@@ -8,3 +9,5 @@
  * -v/--version path, which exits before the event loop starts.
  */
 bool remote_print_version(void);
+
+#endif /* PATCH_REMOTE_H */

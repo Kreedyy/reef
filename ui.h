@@ -1,4 +1,6 @@
-#pragma once
+#ifndef UI_H
+#define UI_H
+
 #include <mpd/client.h>
 #include <panel.h>
 
@@ -152,3 +154,5 @@ void hint_add_i(char *buf, size_t size, size_t *len, const char *label,
     void (*action)(const Arg *), int i);
 void hint_add_b(char *buf, size_t size, size_t *len, const char *label,
     void (*action)(const Arg *), bool b);
+
+#endif /* UI_H */

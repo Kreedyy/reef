@@ -1,4 +1,5 @@
-#pragma once
+#ifndef THEME_H
+#define THEME_H
 
 #include <ncurses.h>
 
@@ -38,3 +39,5 @@ enum {
 
   STYLE_COUNT
 };
+
+#endif /* THEME_H */

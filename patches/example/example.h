@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PATCH_EXAMPLE_H
+#define PATCH_EXAMPLE_H
 
 #include "keybinds.h"
 #include "layout.h"
@@ -46,3 +47,5 @@ static const Keybind example_keybinds[] = {
 #define EXAMPLE_KEYBINDS \
 TAB_KEYBINDS(draw_example_testtab1, example_keybinds), \
 TAB_KEYBINDS(draw_example_testtab2, example_keybinds),
+
+#endif /* PATCH_EXAMPLE_H */

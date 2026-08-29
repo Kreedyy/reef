@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LAYOUT_NCMPCPP_H
+#define LAYOUT_NCMPCPP_H
 
 #include <ncurses.h>
 
@@ -92,3 +93,5 @@ layout_arrange(Rect area, int active, Rect *out, int n)
   for (i = 0; i < n; i++)
     out[i] = (i == active) ? area : (Rect){ 0, 0, 0, 0 };
 }
+
+#endif /* LAYOUT_NCMPCPP_H */

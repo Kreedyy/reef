@@ -1,4 +1,5 @@
-#pragma once
+#ifndef THEME_ROSE_H
+#define THEME_ROSE_H
 
 // hi
 
@@ -56,3 +57,4 @@ static const Style theme[STYLE_COUNT] = {
   [STYLE_ACTIVE]          = { COLOR_ACTIVE,          COLOR_HIGHLIGHT_BG, A_NORMAL  },
 };
 
+#endif /* THEME_ROSE_H */

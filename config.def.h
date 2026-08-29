@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CONFIG_H
+#define CONFIG_H
 
 #include <stdbool.h>
 
@@ -193,3 +194,4 @@ static const int col_pct_album = 20;
 
 /* fixed chars, 5 fits mm:ss */
 static const int col_width_time = 5;
+#endif /* CONFIG_H */

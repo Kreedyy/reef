@@ -74,7 +74,6 @@ This can be changed with `PREFIX`:
 Each item takes precedence over the ones before it:
 - [suckless coding style](https://suckless.org/coding_style/)
 - Tab = 2 spaces
-- Use the `#pragma once` guard
 - Use the `bool` type
 - Indent `case` inside a `switch`
 
