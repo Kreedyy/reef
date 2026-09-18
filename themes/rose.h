@@ -1,7 +1,7 @@
 #ifndef THEME_ROSE_H
 #define THEME_ROSE_H
 
-// hi
+/* hi */
 
 #include "theme.h"
 
