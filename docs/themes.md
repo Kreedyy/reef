@@ -10,6 +10,7 @@ Select one in `config.h`, all themes are in [themes](../themes):
 - `ncmpcpp.h` [ncmpcpp](https://github.com/ncmpcpp/ncmpcpp) clone
 - `rmpc.h` [rmpc](https://github.com/mierak/rmpc) clone
 - `rose.h` pink-ish theme
+- `forest.h` green-ish theme
 
 ## The colors
 

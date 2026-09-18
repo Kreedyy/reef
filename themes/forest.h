@@ -1,0 +1,70 @@
+#ifndef THEME_FOREST_H
+#define THEME_FOREST_H
+
+/*
+ * AUTHOR: Luminous Echo (https://git.gay/LuminousEcho)
+ *
+ * A green theme :D
+ *
+ */
+
+#include "theme.h"
+
+#define COLOR_GREEN_           0x33E866
+#define COLOR_DARKGREEN_       0x22AA33
+#define COLOR_DARKERGREEN_     0x119922
+#define COLOR_BRIGHTGREEN_     0x44F877
+#define COLOR_CYAN_            0x22DFAA
+#define COLOR_GRAY_            0x448844
+#define COLOR_YELLOW_          0x96f20d
+#define COLOR_ERROR_           0xFF0000
+
+#define COLOR_DEFAULT          COLOR_GREEN_
+#define COLOR_BORDER           COLOR_DARKERGREEN_
+#define COLOR_BORDER_FOCUSED   COLOR_DARKGREEN_
+#define COLOR_TITLE            COLOR_GREEN_
+#define COLOR_ARTIST           COLOR_CYAN_
+#define COLOR_TRACK            COLOR_DEFAULT
+#define COLOR_ALBUM            COLOR_DARKGREEN_
+#define COLOR_STATE_PLAYER     COLOR_YELLOW_
+#define COLOR_STATE_MODES_ON   COLOR_YELLOW_
+#define COLOR_STATE_MODES_OFF  COLOR_GRAY_
+#define COLOR_TAB              COLOR_YELLOW_
+#define COLOR_TAB_ACTIVE       COLOR_YELLOW_
+#define COLOR_PROGRESS         COLOR_GREEN_
+#define COLOR_TIME             COLOR_CYAN_
+#define COLOR_VOLUME           COLOR_YELLOW_
+#define COLOR_COLUMN_HEADER    COLOR_YELLOW_
+#define COLOR_KEYBIND          COLOR_GRAY_
+#define COLOR_ERROR            COLOR_ERROR_
+#define COLOR_HIGHLIGHT        COLOR_BRIGHTGREEN_
+#define COLOR_ACTIVE           COLOR_GREEN_
+#define COLOR_BACKGROUND       TRANSPARENT
+#define COLOR_HIGHLIGHT_BG     COLOR_DARKERGREEN_
+#define COLOR_ACTIVE_BG        TRANSPARENT
+
+static const Style theme[STYLE_COUNT] = {
+  /* slot                     fg                     bg                  attribute */
+  [STYLE_DEFAULT]         = { COLOR_DEFAULT,         COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_BORDER]          = { COLOR_BORDER,          COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_BORDER_FOCUSED]  = { COLOR_BORDER_FOCUSED,  COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_TITLE]           = { COLOR_TITLE,           COLOR_BACKGROUND,   A_BOLD    },
+  [STYLE_ARTIST]          = { COLOR_ARTIST,          COLOR_BACKGROUND,   A_ITALIC  },
+  [STYLE_TRACK]           = { COLOR_TRACK,           COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_ALBUM]           = { COLOR_ALBUM,           COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_TIME]            = { COLOR_TIME,            COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_STATE_PLAYER]    = { COLOR_STATE_PLAYER,    COLOR_BACKGROUND,   A_BOLD    },
+  [STYLE_STATE_MODES_ON]  = { COLOR_STATE_MODES_ON,  COLOR_BACKGROUND,   A_BOLD    },
+  [STYLE_STATE_MODES_OFF] = { COLOR_STATE_MODES_OFF, COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_TAB]             = { COLOR_TAB,             COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_TAB_ACTIVE]      = { COLOR_TAB_ACTIVE,      COLOR_BACKGROUND,   A_BOLD | A_UNDERLINE },
+  [STYLE_PROGRESS]        = { COLOR_PROGRESS,        COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_VOLUME]          = { COLOR_VOLUME,          COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_COLUMN_HEADER]   = { COLOR_COLUMN_HEADER,   COLOR_BACKGROUND,   A_ITALIC  },
+  [STYLE_KEYBIND]         = { COLOR_KEYBIND,         COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_ERROR]           = { COLOR_ERROR,           COLOR_BACKGROUND,   A_NORMAL  },
+  [STYLE_HIGHLIGHT]       = { COLOR_HIGHLIGHT,       COLOR_HIGHLIGHT_BG, A_BOLD    },
+  [STYLE_ACTIVE]          = { COLOR_ACTIVE,          COLOR_ACTIVE_BG,    A_REVERSE },
+};
+
+#endif /* THEME_FOREST_H */
