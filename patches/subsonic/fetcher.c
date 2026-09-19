@@ -32,10 +32,11 @@ subsonic_ping_server_on_result(const HttpResponse *resp, void *user) {
 }
 
 void
-subsonic_ping_server() {
+subsonic_ping_server(void) {
   Request *req = calloc(1, sizeof(*req));
 
   char url[1024];
-
-  snprintf(url, sizeof(url), "/rest/ping.view?u=%s&t=%s&s=%s&v=%s&f=json&c=%s", client_name);
+  snprintf(url, sizeof(url),
+      "/rest/ping.view?u=%s&t=%s&s=%s&v=%s&c=%s",
+      subsonic_api_version, client_name);
 }
