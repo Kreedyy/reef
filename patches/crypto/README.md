@@ -1,6 +1,6 @@
 # Description
 
-Patch for creating a hash from different cryptographic functions.
+Patch for creating outputs from different cryptographic functions.
 
 If your patch needs a new function for whatever reason, add an implementation here.
 

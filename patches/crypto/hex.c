@@ -3,12 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "hash.h"
+#include "crypto.h"
 
 static const char HEX_CHARS[] = "0123456789abcdef";
 
 char *
-hash_to_hex(const uint8_t *data, size_t len) {
+crypto_to_hex(const uint8_t *data, size_t len) {
   char *hex = malloc(2 * len + 1);
 
   if (!hex)
@@ -26,9 +26,9 @@ hash_to_hex(const uint8_t *data, size_t len) {
 }
 
 void
-hash_to_hex_free(char *hex) {
+crypto_to_hex_free(char *hex) {
   if (!hex)
     return;
 
-  hash_free_generic(hex, strlen(hex + 1));
+  crypto_free_generic(hex, strlen(hex + 1));
 }

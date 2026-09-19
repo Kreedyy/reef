@@ -6,7 +6,7 @@
 
 #include "config.h"
 #include "cred.h"
-#include "hash.h"
+#include "crypto.h"
 #include "http.h"
 #include "json.h"
 #include "subsonic.h"
@@ -50,31 +50,24 @@ subsonic_ping_server(void) {
   if (pw_ui == NULL)
     return;
 
-  size_t pw_len = strlen(pw_ui);
-
   size_t salt_len = 16;
-  uint8_t *salt = hash_salt(salt_len);
+  char *salt = crypto_random_text(salt_len);
 
-  uint8_t combined_raw[64];
-  memcpy(combined_raw, pw_ui, pw_len);
-  memcpy(combined_raw + pw_len, salt, salt_len);
+  char combined[128];
+  snprintf(combined, sizeof(combined), "%s%s", pw_ui, salt);
 
-  uint8_t *digest = hash_md5_hash(combined_raw, pw_len + salt_len);
+  uint8_t *digest = crypto_md5_hash(combined, strlen(combined));
 
-  char *digest_hex = hash_to_hex(digest, MD5_RAW_LEN);
-  char *salt_hex = hash_to_hex(salt, salt_len);
+  char *digest_hex = crypto_to_hex(digest, MD5_DIGEST_LEN);
 
   char url[1024];
   snprintf(url, sizeof(url),
       "%s/rest/ping.view?u=%s&t=%s&s=%s&v=%s&c=%s&f=%s",
-      subsonic_url, subsonic_user, digest_hex, salt_hex,
+      subsonic_url, subsonic_user, digest_hex, salt,
       subsonic_api_version, client_name, subsonic_format);
 
-
-  //TEST
+  // TEST
   FILE *f = fopen("TEST", "w");
-  fprintf(f, "digest: %s\nsalt: %s\n", digest_hex, salt_hex);
-  
   fprintf(f, "%s", url);
   fclose(f);
 }

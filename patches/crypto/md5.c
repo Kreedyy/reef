@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "hash.h"
+#include "crypto.h"
 
 typedef struct{
   uint64_t count;
@@ -41,10 +41,10 @@ static uint32_t K[] = {
   0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
 };
 
-static const uint8_t PADDING[] = { 0x80 };
+static const uint8_t PADDING[64] = { 0x80 };
 
 #define F(X, Y, Z) ((X & Y) | (~X & Z))
-#define G(X, Y, Z) ((X & Y) | (Y & ~Z))
+#define G(X, Y, Z) ((X & Z) | (Y & ~Z))
 #define H(X, Y, Z) (X ^ Y ^ Z)
 #define I(X, Y, Z) (Y ^ (X | ~Z))
 
@@ -94,16 +94,16 @@ md5_block(uint32_t state[4], const uint8_t block[64]) {
     c = b;
     b = a;
     a = new_a;
-
-    state[0] += a;
-    state[1] += b;
-    state[2] += c;
-    state[3] += d;
   }
+
+  state[0] += a;
+  state[1] += b;
+  state[2] += c;
+  state[3] += d;
 }
 
 uint8_t *
-hash_md5_hash(const void *data, size_t len) {
+crypto_md5_hash(const void *data, size_t len) {
   uint32_t state[4] = { a0, b0, c0, d0 };
   const uint8_t *p = data;
   uint8_t *out = malloc(16);
@@ -142,6 +142,6 @@ hash_md5_hash(const void *data, size_t len) {
 }
 
 void
-hash_md5_free(uint8_t *digest) {
-  hash_free_generic(digest, MD5_RAW_LEN);
+crypto_md5_free(uint8_t *digest) {
+  crypto_free_generic(digest, MD5_DIGEST_LEN);
 }
