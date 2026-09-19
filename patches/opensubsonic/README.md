@@ -1,6 +1,6 @@
 # Description
 
-This patch lets you connect to a Subsonic-API compatible server to browse, play and download music from.
+This patch extends the `Subsonic` patch for compatability with Opensubsonic-API compatible servers.
 
 # Dependencies
 

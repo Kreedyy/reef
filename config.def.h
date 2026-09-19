@@ -76,6 +76,11 @@ static const char *const mpd_password_cmd = NULL;
 
 #ifdef PATCH_subsonic
 
+/* https://subsonic.org/pages/api.jsp#versions */
+static const char *const subsonic_version = "1.16.1"
+
+static const char *const subsonic_url = "https://url.tld";
+
 static const char *const subsonic_user_cmd = NULL;
 static const char *const subsonic_password_cmd = NULL;
 
