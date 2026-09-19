@@ -1,3 +1,5 @@
+#define _GNU_SOURCE 1 /* getrandom() is broken */
+
 #include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -11,7 +13,8 @@
 #define HAS_ARC4RANDOM 1
 #elif defined(__linux__)
 #define HAS_GETRANDOM 1
-#include <sys/random.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 #endif
 
 uint8_t *
@@ -28,7 +31,7 @@ hash_salt(size_t len) {
   size_t got = 0;
 #ifdef HAS_GETRANDOM
   while (got < len) {
-    ssize_t n = getrandom(buf + got, got - len, 0);
+    ssize_t n = syscall(SYS_getrandom, buf + got, len - got, 0); /* getrandom() is broken */
     if (n < 0) {
       if (errno == EINTR)
         continue;
