@@ -143,5 +143,5 @@ md5_hash(const void *data, size_t len) {
 
 void
 md5_free(uint8_t *digest) {
-  hash_free_generic(digest, MD5_RAW_LEN)
+  hash_free_generic(digest, MD5_RAW_LEN);
 }

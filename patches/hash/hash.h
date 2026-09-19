@@ -18,7 +18,7 @@ uint8_t *hash_salt(size_t len);
 void hash_salt_free(uint8_t *salt, size_t len);
 
 /* generic function to zero a pointer of length len */
-void hash_free_generic(void *p, size_t len) {
+static inline void hash_free_generic(void *p, size_t len) {
   if (!p)
     return;
 
