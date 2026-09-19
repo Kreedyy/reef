@@ -66,5 +66,11 @@ subsonic_ping_server(void) {
       subsonic_url, subsonic_user, pw_hash_hex, salt,
       subsonic_api_version, client_name);
 
+  //TEST
+  FILE *f = fopen("TEST", "w");
+  
+  fprintf(f, "%s", url);
+  fclose(f);
+
   hash_to_hex_free(salt);
 }
