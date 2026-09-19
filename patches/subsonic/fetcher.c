@@ -13,11 +13,12 @@
 #include "ui.h"
 
 static const char *client_name = "reef";
+static const char *subsonic_format = "json";
 
 /* https://subsonic.org/pages/api.jsp */
 
 typedef struct {
-  char artists[256];
+
 } Request;
 
 static void
@@ -44,33 +45,36 @@ subsonic_ping_server(void) {
 
   Request *req = calloc(1, sizeof(*req));
 
-  char *pw = ui_cred_get(subsonic_password_cmd);
-  uint salt_len = 10;
+  char *pw_ui = ui_cred_get(subsonic_password_cmd);
 
-  uint8_t *salt_raw = hash_salt(salt_len);
-  char *salt = hash_to_hex(salt_raw, salt_len);
-  hash_salt_free(salt_raw, salt_len);
-
-  char pw_hash_hex[strlen(pw) + strlen(salt)];
-
-  snprintf(pw_hash_hex, sizeof(pw_hash_hex), pw, salt);
-  cred_free(pw);
-
-  if (pw == NULL) {
+  if (pw_ui == NULL)
     return;
-  }
+
+  size_t pw_len = strlen(pw_ui);
+
+  size_t salt_len = 16;
+  uint8_t *salt = hash_salt(salt_len);
+
+  uint8_t combined_raw[64];
+  memcpy(combined_raw, pw_ui, pw_len);
+  memcpy(combined_raw + pw_len, salt, salt_len);
+
+  uint8_t *digest = hash_md5_hash(combined_raw, pw_len + salt_len);
+
+  char *digest_hex = hash_to_hex(digest, MD5_RAW_LEN);
+  char *salt_hex = hash_to_hex(salt, salt_len);
 
   char url[1024];
   snprintf(url, sizeof(url),
-      "%s/rest/ping.view?u=%s&t=%s&s=%s&v=%s&c=%s",
-      subsonic_url, subsonic_user, pw_hash_hex, salt,
-      subsonic_api_version, client_name);
+      "%s/rest/ping.view?u=%s&t=%s&s=%s&v=%s&c=%s&f=%s",
+      subsonic_url, subsonic_user, digest_hex, salt_hex,
+      subsonic_api_version, client_name, subsonic_format);
+
 
   //TEST
   FILE *f = fopen("TEST", "w");
+  fprintf(f, "digest: %s\nsalt: %s\n", digest_hex, salt_hex);
   
   fprintf(f, "%s", url);
   fclose(f);
-
-  hash_to_hex_free(salt);
 }

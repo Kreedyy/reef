@@ -103,7 +103,7 @@ md5_block(uint32_t state[4], const uint8_t block[64]) {
 }
 
 uint8_t *
-md5_hash(const void *data, size_t len) {
+hash_md5_hash(const void *data, size_t len) {
   uint32_t state[4] = { a0, b0, c0, d0 };
   const uint8_t *p = data;
   uint8_t *out = malloc(16);
@@ -142,6 +142,6 @@ md5_hash(const void *data, size_t len) {
 }
 
 void
-md5_free(uint8_t *digest) {
+hash_md5_free(uint8_t *digest) {
   hash_free_generic(digest, MD5_RAW_LEN);
 }
