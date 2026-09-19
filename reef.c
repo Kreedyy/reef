@@ -11,7 +11,6 @@
 #include "keybinds.h"
 #include "lyrics.h"
 #include "mpd.h"
-#include "types.h"
 #include "ui.h"
 
 #ifdef PATCH_http

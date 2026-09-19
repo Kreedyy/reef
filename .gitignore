@@ -7,3 +7,4 @@ reef-debug
 build.log
 debug.log
 version.mk
+compile_commands.json
