@@ -11,6 +11,7 @@
 #include "keybinds.h"
 #include "lyrics.h"
 #include "mpd.h"
+#include "subsonic.h"
 #include "ui.h"
 
 #ifdef PATCH_http
@@ -146,6 +147,9 @@ main(int argc, char *argv[]) {
 #ifdef PATCH_http
   http_init();
 #endif
+
+  //TEST
+  subsonic_ping_server();
 
   fds[POLL_STDIN].fd = STDIN_FILENO;
   fds[POLL_STDIN].events = POLLIN;
