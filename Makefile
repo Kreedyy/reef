@@ -88,7 +88,7 @@ config.patch.mk:
 		'PATCHES = remote' > $@
 
 clean:
-	rm -f reef reef-debug debug.log $(OBJ) $(DEP) $(DBGOBJ) $(DBGDEP) patches/*/*.o patches/*/*.d version.mk version.mk.tmp
+	rm -f reef reef-debug debug.log *.o *.d patches/*/*.o patches/*/*.d version.mk version.mk.tmp
 
 install: all
 	mkdir -p $(PREFIX)/bin
