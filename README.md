@@ -60,6 +60,7 @@ This can be changed with `PREFIX`:
 
 ### Recommended
 - Themes
+- Layouts
 - Add mouse click support
 - Album art patch
 - Visualizer patch
