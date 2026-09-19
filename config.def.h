@@ -74,6 +74,13 @@ static const char *const lyrics_directory = ".lrc";
 
 static const char *const mpd_password_cmd = NULL;
 
+#ifdef PATCH_subsonic
+
+static const char *const subsonic_user_cmd = NULL;
+static const char *const subsonic_password_cmd = NULL;
+
+#endif
+
 /* default: 1
  * options: 0 = off, 1 = on */
 #define SHOW_KEYBIND_BAR 1
