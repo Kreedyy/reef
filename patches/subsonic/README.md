@@ -4,7 +4,6 @@ This patch lets you connect to a Subsonic-API compatible server to browse, play 
 
 # Dependencies
 
-- libcrypto
 - [http](../http)
 - [json](../json)
 
