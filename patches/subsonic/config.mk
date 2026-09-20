@@ -7,7 +7,7 @@ include patches/json/config.mk
 include patches/crypto/config.mk
 
 PATCHDEFS += -DPATCH_subsonic
-SRC  += patches/subsonic/fetcher.c
+SRC  += patches/subsonic/fetcher.c patches/subsonic/draw.c
 INCS += -Ipatches/subsonic
 
 endif

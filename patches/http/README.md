@@ -60,7 +60,7 @@ void fetch(const char *title) {
   if (req == NULL)
     return;
 
-  snprintf(req->title, sizeof req->title, "%s", title);
+  snprintf(req->title, sizeof(req->title), "%s", title);
 
   char *q = http_escape(title); /* escape anything in a query string */
   if (q == NULL) {
