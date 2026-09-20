@@ -3,6 +3,7 @@
 
 #include <ncurses.h>
 
+#include "config.h"
 #include "layout.h"
 #include "mpd.h"
 #include "types.h"
@@ -54,6 +55,7 @@ rmpc_header(WINDOW *win)
   style_on(win, STYLE_TIME);
   draw_text(win, 2, 1 + padding_left, left_edge - padding_left,
       position);
+
   style_off(win, STYLE_TIME);
 
   mid_x = left_edge + 2;

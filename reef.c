@@ -148,8 +148,14 @@ main(int argc, char *argv[]) {
   http_init();
 #endif
 
-  //TEST
+  // TEST
+  subsonic_get_artists();
   subsonic_ping_server();
+  subsonic_stream("AX9EviVIXWiCSEkFk8ZSzJ");
+  subsonic_search3("wifi");
+  //
+  // UNTESTED
+  subsonic_download("AX9EviVIXWiCSEkFk8ZSzJ");
 
   fds[POLL_STDIN].fd = STDIN_FILENO;
   fds[POLL_STDIN].events = POLLIN;

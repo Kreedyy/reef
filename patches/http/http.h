@@ -31,6 +31,9 @@ typedef void (*HttpCallback)(const HttpResponse *resp, void *user);
 bool http_get(const char *url, const char *const *headers, HttpCallback cb,
     void *user);
 
+bool http_download(const char *url, const char *const *headers,
+    const char *dest, HttpCallback cb, void *user);
+
 /* asynchronous POST. body is copied. headers is a NULL terminated array of
  * "Key: Value" strings, or NULL
  * Example:

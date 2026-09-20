@@ -1,5 +1,9 @@
 #include <curl/curl.h>
+#include <curl/typecheck-gcc.h>
 #include <poll.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -20,6 +24,9 @@ typedef struct Request {
   HttpCallback cb;
   void *user;
   struct Request *next;
+  FILE *out;
+  char *path;
+  char *temp;
 } Request;
 
 #define MAX_BODY (8u * 1024 * 1024) /* 8MB */
@@ -33,7 +40,7 @@ static bool shutting_down;
 
 static bool
 buf_append(char **data, size_t *len, size_t *cap, size_t max,
-           const char *ptr, size_t add) {
+    const char *ptr, size_t add) {
   /* written as a subtraction so a huge add cannot wrap the sum */
   if (*len > max || add > max - *len)
     return false;
@@ -60,6 +67,9 @@ static size_t
 sink(char *ptr, size_t size, size_t nmemb, void *ud) {
   Request *r = ud;
   size_t add = size * nmemb;
+
+  if (r->out) 
+    return fwrite(ptr, 1, add, r->out);
 
   return buf_append(&r->data, &r->len, &r->cap, MAX_BODY, ptr, add) ? add : 0;
 }
@@ -115,7 +125,9 @@ new_request(const char *url, HttpCallback cb, void *user) {
   curl_easy_setopt(r->easy, CURLOPT_PRIVATE, r);
   curl_easy_setopt(r->easy, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(r->easy, CURLOPT_ACCEPT_ENCODING, "");
-  curl_easy_setopt(r->easy, CURLOPT_TIMEOUT, 15L);
+  curl_easy_setopt(r->easy, CURLOPT_CONNECTTIMEOUT, 15L);
+  curl_easy_setopt(r->easy, CURLOPT_LOW_SPEED_LIMIT, 1L);
+  curl_easy_setopt(r->easy, CURLOPT_LOW_SPEED_TIME, 30L);
   curl_easy_setopt(r->easy, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(r->easy, CURLOPT_USERAGENT, "reef");
   return r;
@@ -123,9 +135,61 @@ new_request(const char *url, HttpCallback cb, void *user) {
 
 static void
 discard_request(Request *r) {
+  if (r->out) {
+    fclose(r->out);
+    remove(r->temp);
+  }
+
   curl_easy_cleanup(r->easy);
   curl_slist_free_all(r->headers);
+
+  free(r->data);
+  free(r->hdr);
+  free(r->temp);
+  free(r->path);
+
   free(r);
+}
+
+int
+request_to_file(Request *r, const char *path) {
+  size_t n;
+  char *ext;
+  size_t ext_len;
+
+  ext = ".part";
+  ext_len = strlen(ext);
+  n = strlen(path);
+
+  if (!(r->temp = malloc(n + ext_len + 1))) 
+    return -1;
+
+  memcpy(r->temp, path, n);
+  memcpy(r->temp + n, ext, ext_len + 1);
+
+  if (!(r->path = strdup(path)) || !(r->out = fopen(r->temp, "wb"))) {
+    free(r->temp);
+    free(r->path);
+    r->temp = r->path = NULL;
+    return -1;
+  }
+
+  return 0;
+}
+
+static bool
+request_finish_file(Request *r, bool ok) {
+  int c;
+
+  c = fclose(r->out);
+  r->out = NULL;
+
+  ok = c == 0 && ok;
+  ok = ok && rename(r->temp, r->path) == 0;
+
+  if (!ok)
+    remove(r->temp);
+  return ok;
 }
 
 static bool
@@ -157,22 +221,29 @@ submit_request(Request *r) {
 }
 
 bool
-http_get(const char *url, const char *const *headers, HttpCallback cb,
-         void *user) {
+http_download(const char *url, const char *const *headers, const char *dest,
+    HttpCallback cb, void *user) {
   Request *r = new_request(url, cb, user);
 
   if (r == NULL)
     return false;
-  if (!apply_headers(r, headers)) {
+  if (!apply_headers(r, headers) || (dest && request_to_file(r, dest) < 0)) {
     discard_request(r);
     return false;
   }
   return submit_request(r);
+
+}
+
+bool
+http_get(const char *url, const char *const *headers, HttpCallback cb,
+    void *user) {
+  return http_download(url, headers, NULL, cb, user);
 }
 
 bool
 http_post(const char *url, const char *body, const char *const *headers,
-          HttpCallback cb, void *user) {
+    HttpCallback cb, void *user) {
   Request *r = new_request(url, cb, user);
 
   if (r == NULL)
@@ -184,7 +255,7 @@ http_post(const char *url, const char *body, const char *const *headers,
 
   curl_easy_setopt(r->easy, CURLOPT_POST, 1L);
   curl_easy_setopt(r->easy, CURLOPT_POSTFIELDSIZE,
-                   (long)(body ? strlen(body) : 0));
+      (long)(body ? strlen(body) : 0));
   curl_easy_setopt(r->easy, CURLOPT_COPYPOSTFIELDS, body ? body : "");
 
   return submit_request(r);
@@ -204,6 +275,12 @@ finish(Request *r, bool ok) {
   long status = 0;
   curl_easy_getinfo(r->easy, CURLINFO_RESPONSE_CODE, &status);
 
+  fprintf(stderr, "ok=%d status=%ld hdr=[%s]\n", ok, status, r->hdr ? r->hdr : "(null)");
+
+  if (r->out)
+    ok = request_finish_file(r, ok && status >= 200 && status < 300);
+
+
   active--;
 
   if (r->cb != NULL) {
@@ -217,12 +294,8 @@ finish(Request *r, bool ok) {
   }
 
   curl_multi_remove_handle(multi, r->easy);
-  curl_easy_cleanup(r->easy);
-  curl_slist_free_all(r->headers);
   unlink_request(r);
-  free(r->data);
-  free(r->hdr);
-  free(r);
+  discard_request(r);
 }
 
 void
@@ -241,8 +314,10 @@ http_pump(void) {
     if (msg->msg != CURLMSG_DONE)
       continue;
     curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &priv);
-    if (priv != NULL)
+    if (priv != NULL) {
+      fprintf(stderr, "curl: %s\n", curl_easy_strerror(msg->data.result));
       finish((Request *)priv, msg->data.result == CURLE_OK);
+    }
   }
 }
 
@@ -263,7 +338,7 @@ http_fill_pollfds(struct pollfd *fds, int max) {
   FD_ZERO(&wr);
   FD_ZERO(&ex);
   if (curl_multi_fdset(multi, &rd, &wr, &ex, &maxfd) != CURLM_OK ||
-    maxfd < 0)
+      maxfd < 0)
     return 0;
 
   for (fd = 0; fd <= maxfd && n < max; fd++) {
