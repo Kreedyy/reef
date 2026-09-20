@@ -21,6 +21,51 @@ typedef struct {
 
 } Request;
 
+typedef struct {
+  char *digest;
+  size_t digest_len;
+  char *salt;
+  size_t salt_len;
+} Cred;
+
+void
+subsonic_get_credentials(Cred *c) {
+  if (subsonic_password_cmd == NULL || subsonic_password_cmd[0] == '\0')
+    return;
+
+
+  char *pw_ui = ui_cred_get(subsonic_password_cmd);
+
+  if (pw_ui == NULL)
+    return;
+
+  size_t salt_len = 16;
+  char *salt = crypto_random_text(salt_len);
+
+  char combined[128];
+  snprintf(combined, sizeof(combined), "%s%s", pw_ui, salt);
+
+  uint8_t *digest = crypto_md5_hash(combined, strlen(combined));
+
+  char *digest_hex = crypto_to_hex(digest, MD5_DIGEST_LEN);
+
+  c->digest = digest_hex;
+  c->digest_len = MD5_DIGEST_LEN * 2;
+  c->salt = salt;
+  c->salt_len = salt_len;
+
+  cred_free(pw_ui);
+  crypto_md5_free(digest);
+}
+
+void
+subsonic_free_credentials(Cred *c) {
+  if (!c || c == NULL)
+    return;
+  crypto_free_generic(c->digest, c->digest_len);
+  crypto_free_generic(c->salt, c->salt_len);
+}
+
 static void
 subsonic_ping_server_on_result(const HttpResponse *resp, void *user) {
   Request *req = user;
@@ -40,34 +85,22 @@ subsonic_ping_server_on_result(const HttpResponse *resp, void *user) {
 
 void
 subsonic_ping_server(void) {
-  if (subsonic_password_cmd == NULL || subsonic_password_cmd[0] == '\0')
-    return;
-
-  Request *req = calloc(1, sizeof(*req));
-
-  char *pw_ui = ui_cred_get(subsonic_password_cmd);
-
-  if (pw_ui == NULL)
-    return;
-
-  size_t salt_len = 16;
-  char *salt = crypto_random_text(salt_len);
-
-  char combined[128];
-  snprintf(combined, sizeof(combined), "%s%s", pw_ui, salt);
-
-  uint8_t *digest = crypto_md5_hash(combined, strlen(combined));
-
-  char *digest_hex = crypto_to_hex(digest, MD5_DIGEST_LEN);
+  
+  Cred c;
+  subsonic_get_credentials(&c);
 
   char url[1024];
   snprintf(url, sizeof(url),
       "%s/rest/ping.view?u=%s&t=%s&s=%s&v=%s&c=%s&f=%s",
-      subsonic_url, subsonic_user, digest_hex, salt,
+      subsonic_url, subsonic_user, c.digest, c.salt,
       subsonic_api_version, client_name, subsonic_format);
+
+  subsonic_free_credentials(&c);
 
   // TEST
   FILE *f = fopen("TEST", "w");
   fprintf(f, "%s", url);
   fclose(f);
 }
+
+
