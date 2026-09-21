@@ -30,6 +30,11 @@ typedef struct {
 
 void
 subsonic_get_credentials(Cred *c) {
+  c->digest = NULL;
+  c->digest_len = 0;
+  c->salt = NULL;
+  c->salt_len = 0;
+
   if (subsonic_password_cmd == NULL || subsonic_password_cmd[0] == '\0')
     return;
 
@@ -85,8 +90,11 @@ subsonic_ping_server_on_result(const HttpResponse *resp, void *user) {
 
 void
 subsonic_ping_server(void) {
+
+  /* NOTE: for future; if ping fails avoid trying to fetch anything else.
+   * retry ping after 5s then keep mult 2? or keybind? */
   
-  Cred c;
+  Cred c = {0};
   subsonic_get_credentials(&c);
 
   char url[1024];
