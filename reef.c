@@ -126,6 +126,8 @@ main(int argc, char *argv[]) {
 
 #ifdef REEF_DEBUG
   debug_log_init();
+#else
+  freopen("/dev/null", "w", stderr);
 #endif
 
   if (argc > 1 && (strcmp(argv[1], "-v") == 0 ||
