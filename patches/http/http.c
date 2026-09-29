@@ -275,7 +275,7 @@ finish(Request *r, bool ok) {
   long status = 0;
   curl_easy_getinfo(r->easy, CURLINFO_RESPONSE_CODE, &status);
 
-  fprintf(stderr, "ok=%d status=%ld hdr=[%s]\n", ok, status, r->hdr ? r->hdr : "(null)");
+  // fprintf(stderr, "ok=%d status=%ld hdr=[%s]\n", ok, status, r->hdr ? r->hdr : "(null)");
 
   if (r->out)
     ok = request_finish_file(r, ok && status >= 200 && status < 300);
@@ -315,7 +315,7 @@ http_pump(void) {
       continue;
     curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &priv);
     if (priv != NULL) {
-      fprintf(stderr, "curl: %s\n", curl_easy_strerror(msg->data.result));
+      // fprintf(stderr, "curl: %s\n", curl_easy_strerror(msg->data.result));
       finish((Request *)priv, msg->data.result == CURLE_OK);
     }
   }

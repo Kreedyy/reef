@@ -1,9 +1,12 @@
+#include <asm-generic/errno-base.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <wchar.h>
 
@@ -29,69 +32,91 @@ typedef struct {
   size_t salt_len;
 } Cred;
 
-typedef struct {
-  char *path;
-  char *title;
-} Download;
-
 static bool is_connected = false;
 
+static Cred cred;
+
 static void
-subsonic_get_password(Cred *c) {
-  c->digest = NULL;
-  c->digest_len = 0;
-  c->salt = NULL;
-  c->salt_len = 0;
+wipe(void *p, size_t len) {
+  volatile unsigned char *v = p;
 
-  if (subsonic_password_cmd == NULL || subsonic_password_cmd[0] == '\0')
-    return;
-
-
-  char *pw_ui = ui_cred_get(subsonic_password_cmd);
-
-  if (pw_ui == NULL)
-    return;
-
-  size_t salt_len = 16;
-  char *salt = crypto_random_text(salt_len);
-
-  char combined[128];
-  snprintf(combined, sizeof(combined), "%s%s", pw_ui, salt);
-
-  uint8_t *digest = crypto_md5_hash(combined, strlen(combined));
-
-  char *digest_hex = crypto_to_hex(digest, MD5_DIGEST_LEN);
-
-  c->digest = digest_hex;
-  c->digest_len = MD5_DIGEST_LEN * 2;
-  c->salt = salt;
-  c->salt_len = salt_len;
-
-  cred_free(pw_ui);
-  crypto_md5_free(digest);
+  while (len-- > 0)
+    *v++ = 0;
 }
 
 void
-subsonic_free_password(Cred *c) {
-  if (!c || c == NULL)
-    return;
-  crypto_free_generic(c->digest, c->digest_len);
-  crypto_free_generic(c->salt, c->salt_len);
+subsonic_free_password(void) {
+  crypto_free_generic(cred.digest, cred.digest_len);
+  crypto_free_generic(cred.salt, cred.salt_len);
+  cred.digest = NULL;
+  cred.digest_len = 0;
+  cred.salt = NULL;
+  cred.salt_len = 0;
 }
 
-static void
-url_builder(char *out, size_t size, char *end_point, char *q) {
-  Cred c = {0};
-  subsonic_get_password(&c);
+static bool
+subsonic_get_password(void) {
+  const size_t salt_len = 16;
+  char combined[128];
+  char *pw_ui, *salt, *digest_hex;
+  uint8_t *digest;
 
+  if (cred.digest != NULL && cred.salt != NULL)
+    return true;
+
+  if (subsonic_password_cmd == NULL || subsonic_password_cmd[0] == '\0')
+    return false;
+
+  if ((pw_ui = ui_cred_get(subsonic_password_cmd)) == NULL)
+    return false;
+
+  if ((salt = crypto_random_text(salt_len)) == NULL) {
+    cred_free(pw_ui);
+    return false;
+  }
+
+  snprintf(combined, sizeof(combined), "%s%s", pw_ui, salt);
+  cred_free(pw_ui);
+
+  digest = crypto_md5_hash(combined, strlen(combined));
+  wipe(combined, sizeof(combined));
+
+  if (digest == NULL) {
+    crypto_free_generic(salt, salt_len + 1);
+    return false;
+  }
+
+  digest_hex = crypto_to_hex(digest, MD5_DIGEST_LEN);
+  crypto_md5_free(digest);
+
+  if (digest_hex == NULL) {
+    crypto_free_generic(salt, salt_len + 1);
+    return false;
+  }
+
+  cred.digest = digest_hex;
+  cred.digest_len = MD5_DIGEST_LEN * 2 + 1;
+  cred.salt = salt;
+  cred.salt_len = salt_len + 1;
+  return true;
+}
+
+static bool
+url_builder(char *out, size_t size, char *end_point, char *q) {
   char *params = (q != NULL) ? q : "";
+
+  if (subsonic_url == NULL || subsonic_user == NULL)
+    return false;
+
+  if (!subsonic_get_password() || cred.digest == NULL || cred.salt == NULL)
+    return false;
 
   snprintf(out, size,
       "%s/rest/%s?u=%s&t=%s&s=%s&v=%s&c=%s&f=%s&%s",
-      subsonic_url, end_point, subsonic_user, c.digest, c.salt,
+      subsonic_url, end_point, subsonic_user, cred.digest, cred.salt,
       subsonic_api_version, client_name, subsonic_format, params);
 
-  subsonic_free_password(&c);
+  return true;
 }
 
 static void
@@ -126,7 +151,11 @@ subsonic_ping_server(void) {
    * retry ping after 5s then keep mult 2? or keybind? */
 
   char url[1024];
-  url_builder(url, sizeof(url), "ping.view", NULL);
+
+  if (!url_builder(url, sizeof(url), "ping.view", NULL)) {
+    is_connected = false;
+    return;
+  }
 
   // TEST
   fprintf(stderr, "%s\n", url);
@@ -170,7 +199,9 @@ void
 subsonic_get_artists(void) {
 
   char url[1024];
-  url_builder(url, sizeof(url), "getArtists", NULL);
+
+  if (!url_builder(url, sizeof(url), "getArtists", NULL))
+    return;
 
   if (!http_get(url, NULL, on_artists, NULL)) {
     return;
@@ -181,8 +212,12 @@ subsonic_get_artists(void) {
 void
 subsonic_stream(char *id) {
   char url[1024];
-  url_builder(url, sizeof(url), "stream", "format=raw&id=");
-  size_t len = strlen(url);
+  size_t len;
+
+  if (!url_builder(url, sizeof(url), "stream", "format=raw&id="))
+    return;
+
+  len = strlen(url);
   snprintf(url + len, sizeof(url) - len, "%s", id);
 
   queue_add_and_play(url);
@@ -190,36 +225,100 @@ subsonic_stream(char *id) {
 
 static void
 on_download(const HttpResponse *resp, void *user) {
-  (void)user; /* get rid of warning */
-  (void)resp;
+  char *path;
+  char disp[256], new_path[256];
+  char *name, *end, *slash;
 
-  // Download *d;
-  //
-  // d = user;
+  path = user;
+
+  if (resp->ok && http_header(resp, "content-disposition", disp, sizeof(disp)) &&
+      (name = strstr(disp, "filename=\"")) != NULL &&
+      (end = strchr(name += 10, '"')) != NULL && end > name) {
+    *end = '\0';
+    for (char *c = name; *c; c++)
+      if (*c == '/')
+        *c = '_';
+    
+
+    slash = strrchr(path, '/');
+    snprintf(new_path, sizeof(new_path), "%.*s/%s", (int)(slash - path),
+        path, name);
+    rename(path, new_path);
+  }
+  free(path);
+
 
   /* do something maybe */
 
-  // free(d->path);
-  // free(d->title);
-  // free(d);
 }
+
+/* static int
+mkdir_p(char *path) {
+  for (char *p = path + 1; *p; p++) {
+    if (*p != '/') {
+      continue;
+    }
+    *p = '\0';
+    if (mkdir(path, 0755) != 0 && errno != EEXIST) {
+      *p = '/';
+      return -1;
+    }
+    *p = '/';
+  }
+
+  return mkdir(path, 0755) != 0 && errno != EEXIST ? -1 : 0;
+} */
+
+/* static const char *
+download_dir(char *buf, size_t size) {
+  const char *dir;
+  const char *home;
+
+  const char *FALLBACK_DIR = "music/reef";
+
+  dir = mpd_music_directory();
+
+  if (dir[0] != '\0')
+    return dir;
+
+  if ((home = getenv("HOME")) == NULL)
+    return NULL;
+  
+  if ((size_t)snprintf(buf, size, "%s/%s", home, FALLBACK_DIR) >= size)
+    return NULL;
+
+  if (mkdir_p(buf) != 0)
+    return NULL;
+
+  return buf;
+
+} */
 
 void
 subsonic_download(char *id) {
-  char url[1024];
-  url_builder(url, sizeof(url), "download", "id=");
-  size_t len = strlen(url);
+  char url[1024], path[512];
+  const char *music_dir;
+  char *user_path;
+  size_t len;
+
+  if (!url_builder(url, sizeof(url), "download", "id="))
+    return;
+
+  len = strlen(url);
   snprintf(url + len, sizeof(url) - len, "%s", id);
 
-  const char *music_dir = mpd_music_directory();
+  music_dir = mpd_music_directory();
 
-  // const char *path = strlen(music_dir) > 0 ? music_dir : getenv("HOME");
-  const char *path = "/home/kreedy/repos/reef/FILE.flac";
-
-  if (!http_download(url, NULL, path, on_download, NULL)) {
+  if (music_dir[0] == '\0')
     return;
-  }
-  return;
+
+  snprintf(path, sizeof(path), "%s/%s", music_dir, id);
+
+  if ((user_path = strdup(path)) == NULL)
+    return;
+
+  if (!http_download(url, NULL, path, on_download, user_path))
+    free(user_path);
 }
 
 static void
@@ -244,8 +343,12 @@ on_search3(const HttpResponse *resp, void *user) {
 void
 subsonic_search3(char *q) {
   char url[1024];
-  url_builder(url, sizeof(url), "search3", "query=");
-  size_t len = strlen(url);
+  size_t len;
+
+  if (!url_builder(url, sizeof(url), "search3", "query="))
+    return;
+
+  len = strlen(url);
   snprintf(url + len, sizeof(url) - len, "%s", q);
 
   if (!http_get(url, NULL, on_search3, NULL)) {
@@ -256,30 +359,73 @@ subsonic_search3(char *q) {
 void
 subsonic_get_artist(char *id) {
   char url[1024];
-  url_builder(url, sizeof(url), "getArtist", "id=");
-  size_t len = strlen(url);
+  size_t len;
+
+  if (!url_builder(url, sizeof(url), "getArtist", "id="))
+    return;
+
+  len = strlen(url);
   snprintf(url + len, sizeof(url) - len, "%s", id);
 }
 
 void
 subsonic_get_album(char *id) {
   char url[1024];
-  url_builder(url, sizeof(url), "getAlbum", "id=");
-  size_t len = strlen(url);
+  size_t len;
+
+  if (!url_builder(url, sizeof(url), "getAlbum", "id="))
+    return;
+
+  len = strlen(url);
   snprintf(url + len, sizeof(url) - len, "%s", id);
 
 }
 
+static void
+on_get_song(const HttpResponse *resp, void *user) {
+  (void)user; /* get rid of warning */
+
+  if (resp->ok && resp->status == 200 && resp->len > 0) {
+    const char *end = resp->data + resp->len;
+
+    const char *subsonic_response = json_value(resp->data, end,
+        "subsonic-response");
+    const char *subsonic_song = (subsonic_response != NULL) ?
+      json_value(subsonic_response, end, "song") : NULL;
+
+    char title[256];
+    json_string(subsonic_song, end, "title", title, sizeof(title));
+
+    char suffix[64];
+    json_string(subsonic_song, end, "suffix", suffix, sizeof(suffix));
+
+
+    /* TEST */
+    fprintf(stderr, "TITLE: %s\nSUFFIX: %s", title, suffix);
+
+  }
+
+}
 void
 subsonic_get_song(char *id) {
   char url[1024];
-  url_builder(url, sizeof(url), "getSong", "id=");
-  size_t len = strlen(url);
+  size_t len;
+
+  if (!url_builder(url, sizeof(url), "getSong", "id="))
+    return;
+
+  len = strlen(url);
   snprintf(url + len, sizeof(url) - len, "%s", id);
+
+  if (!http_get(url, NULL, on_get_song, NULL)) {
+    return;
+  }
 }
 
 void
 subsonic_get_playlists(void) {
   char url[1024];
-  url_builder(url, sizeof(url), "getPlaylists", NULL);
+
+  if (!url_builder(url, sizeof(url), "getPlaylists", NULL))
+    return;
 }

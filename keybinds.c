@@ -160,6 +160,31 @@ init_keybinds(void) {
     bind_insert(keybinds[i].key, keybinds[i].action, keybinds[i].arg);
 }
 
+static const Keybind *
+resolve_key(int key) {
+  const Keybind *kb = local_lookup(key);
+
+  return kb != NULL ? kb : bind_lookup(key);
+}
+
+static void
+seek_burst(const Keybind *kb) {
+  const Keybind *next;
+  int total = kb->arg.i;
+  int ch;
+
+  while ((ch = getch()) != ERR) {
+    next = resolve_key(ch);
+    if (next == NULL || next->action != seek_seconds) {
+      ungetch(ch);
+      break;
+    }
+    total += next->arg.i;
+  }
+
+  seek_seconds(&(Arg){ .i = total });
+}
+
 void
 handle_key(int input) {
   const Keybind *kb;
@@ -216,12 +241,12 @@ handle_key(int input) {
 
   /* the focused tab gets first refusal on the key, keybinds[] only sees
    * what it did not name */
-  kb = local_lookup(input);
-  if (!kb)
-    kb = bind_lookup(input);
+  kb = resolve_key(input);
 
   if (!kb)
     focus_tab_by_key(input);
+  else if (kb->action == seek_seconds)
+    seek_burst(kb);
   else if (kb->action)
     kb->action(&kb->arg);
   update_panels();

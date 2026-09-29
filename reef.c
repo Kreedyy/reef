@@ -11,8 +11,11 @@
 #include "keybinds.h"
 #include "lyrics.h"
 #include "mpd.h"
-#include "subsonic.h"
 #include "ui.h"
+
+#ifdef PATCH_subsonic
+#include "subsonic.h"
+#endif
 
 #ifdef PATCH_http
 #include "http.h"
@@ -151,13 +154,12 @@ main(int argc, char *argv[]) {
 #endif
 
   // TEST
-  subsonic_get_artists();
-  subsonic_ping_server();
-  subsonic_stream("AX9EviVIXWiCSEkFk8ZSzJ");
-  subsonic_search3("wifi");
-  //
-  // UNTESTED
-  subsonic_download("AX9EviVIXWiCSEkFk8ZSzJ");
+  // subsonic_get_artists();
+  // subsonic_ping_server();
+  // subsonic_stream("AX9EviVIXWiCSEkFk8ZSzJ");
+  // subsonic_search3("wifi");
+  // subsonic_download("AX9EviVIXWiCSEkFk8ZSzJ");
+  // subsonic_get_song("AX9EviVIXWiCSEkFk8ZSzJ");
 
   fds[POLL_STDIN].fd = STDIN_FILENO;
   fds[POLL_STDIN].events = POLLIN;
@@ -242,6 +244,10 @@ main(int argc, char *argv[]) {
 
 #ifdef PATCH_lrclib
   lrclib_solve_cancel();
+#endif
+
+#ifdef PATCH_subsonic
+  subsonic_free_password();
 #endif
 
 #ifdef PATCH_http
