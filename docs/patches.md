@@ -7,6 +7,13 @@ Each name pulls in `patches/<name>/config.mk`, and that file is what defines
 `-DPATCH_<name>` for everyone else to test against.  
 [`patches/example`](../patches/example/), [`patches/http`](../patches/http/) and [`patches/lrclib`](../patches/lrclib/) are some patches you can reference.
 
+If you need to log something while developing you can do so by printing to stderr and running `make debug` for the debug build:
+```c
+fprintf(stderr, "Log something");
+```
+
+This will create the `debug.log` file for you to look at.
+
 ## Files
 
 A patch should have *one* header file which exposes functions others can use.
