@@ -305,7 +305,7 @@ It also removes the hint inside the keybind bar on a tab where said
 key is overwritten.
 
 If a tab wants to consume raw keys i.e. typing out `q` instead of quitting  
-look at `handle_key()` in [`keybinds.c`](keybinds.c).
+look at `handle_key()` in [`keybinds.c`](../keybinds.c).
 
 ## Drawing text
 
@@ -338,6 +338,15 @@ cred_free(pw);
 We do not want to store credentials, so free as soon as you are done.  
 A value other than `NULL` only means the command printed something, not that it works.  
 If the service rejects it, reporting it is your job.
+
+For a password you need to reuse often, do not call `ui_cred_get()` each  
+time. It forks a shell and waits for it to exit, stalling input, redraws  
+and in flight http until the agent answers.
+
+Derive it once and keep that instead, see `subsonic_get_password()` in the  
+[subsonic](../patches/subsonic/README.md) patch. It is still password  
+equivalent so wipe it with `crypto_free_generic()` and release it at  
+shutdown from `main()`.
 
 ## Updating a patch
 
