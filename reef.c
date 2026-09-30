@@ -61,6 +61,7 @@ __asan_default_options(void) {
 enum {
   POLL_STDIN,
   POLL_MPD,
+  POLL_MPD_STATUS,
 #ifdef PATCH_lrclib
   POLL_LRCLIB, /* the publish challenge solver, idle unless it is searching */
 #endif
@@ -156,7 +157,7 @@ main(int argc, char *argv[]) {
   // TEST
   // subsonic_get_artists();
   // subsonic_ping_server();
-  // subsonic_stream("AX9EviVIXWiCSEkFk8ZSzJ");
+  subsonic_stream("AX9EviVIXWiCSEkFk8ZSzJ");
   // subsonic_search3("wifi");
   // subsonic_download("AX9EviVIXWiCSEkFk8ZSzJ");
   // subsonic_get_song("AX9EviVIXWiCSEkFk8ZSzJ");
@@ -170,6 +171,8 @@ main(int argc, char *argv[]) {
 
   while (running) {
     fds[POLL_MPD].fd = mpd_idle_fd();
+    fds[POLL_MPD_STATUS].fd = mpd_status_fd();
+    fds[POLL_MPD_STATUS].events = POLLIN;
 #ifdef PATCH_lrclib
     fds[POLL_LRCLIB].fd = lrclib_solve_fd();
     fds[POLL_LRCLIB].events = POLLIN;
@@ -198,13 +201,20 @@ main(int argc, char *argv[]) {
     if (ready < 0 && errno != EINTR)
       mpd_drop_connection();
 
+    if (fds[POLL_MPD_STATUS].revents & (POLLHUP | POLLERR | POLLNVAL))
+      mpd_drop_connection();
+    else if (fds[POLL_MPD_STATUS].revents & POLLIN)
+      mpd_collect_status();
+
     if (fds[POLL_MPD].revents & (POLLHUP | POLLERR | POLLNVAL)) {
       mpd_drop_connection();
     } else if (fds[POLL_MPD].revents & POLLIN) {
       enum mpd_idle events = mpd_drain_events();
 
       if (events && mpd_connected()) {
-        mpd_refresh_status();
+        if (events & MPD_IDLE_PLAYER)
+          mpd_arm_settle();
+        mpd_request_status();
         ui_on_mpd_events(events);
       }
     } else if (!mpd_connected() &&

@@ -94,6 +94,7 @@ typedef struct {
  * is updated (reef signals that via mpd_invalidate_library). */
 const SongList *mpd_queue(void);
 const SongList *mpd_library(void);
+void mpd_invalidate_queue(void);
 void mpd_invalidate_library(void);
 
 void mpd_browse(const char *path, DirList *dirs, SongList *songs);
@@ -149,6 +150,14 @@ int mpd_idle_fd(void);
 enum mpd_idle mpd_drain_events(void);
 void mpd_refresh_status(void);
 void mpd_resync_elapsed(void);
+void mpd_arm_settle(void);
+
+/* status is fetched asynchronously, see the note by mpd_stat in mpd.c.
+ * mpd_status_fd() is -1 unless a reply is outstanding, so poll() ignores the
+ * slot when there is nothing in flight */
+void mpd_request_status(void);
+int mpd_status_fd(void);
+void mpd_collect_status(void);
 
 void mpd_drop_connection(void);
 

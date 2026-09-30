@@ -629,6 +629,9 @@ ui_on_mpd_events(enum mpd_idle events) {
   if (events & MPD_IDLE_PLAYER)
     lyrics_prefetch();
 
+  if (events & MPD_IDLE_QUEUE)
+    mpd_invalidate_queue();
+
   if (events & MPD_IDLE_DATABASE) {
     mpd_invalidate_library();
     browser_invalidate();

@@ -19,6 +19,11 @@ struct mpd_connection *mpd;
 
 static struct mpd_connection *mpd_idle;
 
+/* status is polled on its own connection so the reply can be collected from
+ * the poll loop instead of blocking on it */
+static struct mpd_connection *mpd_stat;
+static bool status_in_flight;
+
 static const enum mpd_idle idle_mask = MPD_IDLE_PLAYER | MPD_IDLE_MIXER |
   MPD_IDLE_QUEUE | MPD_IDLE_DATABASE |
   MPD_IDLE_OPTIONS |
@@ -70,7 +75,6 @@ mono_ms(void) {
 #define ELAPSED_RESYNC_MS 1000
 #define ELAPSED_SETTLE_MS 250
 #define ELAPSED_SETTLE_FOR_MS 2000
-#define ELAPSED_JUMP_MS 100
 
 static unsigned long elapsed_synced_at;
 static unsigned long elapsed_settling_until;
@@ -278,6 +282,11 @@ mpd_library(void) {
   if (mpd != NULL && !library_loaded)
     load_library();
   return &library;
+}
+
+void
+mpd_invalidate_queue(void) {
+  queue_loaded = false;
 }
 
 void
@@ -662,6 +671,12 @@ get_bitrate(void) {
 
 void
 mpd_drop_connection(void) {
+  if (mpd_stat != NULL) {
+    mpd_connection_free(mpd_stat);
+    mpd_stat = NULL;
+  }
+  status_in_flight = false;
+
   if (mpd_idle != NULL) {
     mpd_connection_free(mpd_idle);
     mpd_idle = NULL;
@@ -724,6 +739,8 @@ mpd_authenticate(void) {
     set_error(mpd_connection_get_error_message(mpd));
   else if (!mpd_run_password(mpd_idle, pw))
     set_error(mpd_connection_get_error_message(mpd_idle));
+  else if (!mpd_run_password(mpd_stat, pw))
+    set_error(mpd_connection_get_error_message(mpd_stat));
   else
     ok = true;
 
@@ -772,6 +789,15 @@ init_mpd(void) {
     return false;
   }
 
+  mpd_stat = mpd_connection_new(NULL, 0, MPD_TIMEOUT_MS);
+  if (mpd_stat == NULL ||
+    mpd_connection_get_error(mpd_stat) != MPD_ERROR_SUCCESS) {
+    set_error(mpd_stat ? mpd_connection_get_error_message(mpd_stat)
+              : "out of memory");
+    mpd_drop_connection();
+    return false;
+  }
+
   if (!mpd_authenticate()) {
     mpd_drop_connection();
     return false;
@@ -806,35 +832,9 @@ mpd_drain_events(void) {
   return events;
 }
 
-static bool
-elapsed_moved(unsigned expected, unsigned reported) {
-  unsigned gap = reported > expected ? reported - expected :
-    expected - reported;
-
-  return gap > ELAPSED_JUMP_MS;
-}
-
-void
-mpd_refresh_status(void) {
-  struct mpd_status *status;
-  enum mpd_state previous_state;
-  unsigned expected;
-  int previous_song_id;
-
-  if (mpd == NULL)
-    return;
-
-  previous_song_id = st.song_id;
-  previous_state = st.state;
-  expected = get_elapsed_ms();
-
-  status = mpd_run_status(mpd);
-  if (status == NULL) {
-    clear_status();
-    check_conn(mpd);
-    return;
-  }
-
+static void
+apply_status(struct mpd_status *status, enum mpd_state previous_state,
+    int previous_song_id) {
   st.volume = mpd_status_get_volume(status);
   st.state = mpd_status_get_state(status);
   st.song_id = mpd_status_get_song_id(status);
@@ -850,13 +850,89 @@ mpd_refresh_status(void) {
 
   elapsed_synced_at = mono_ms();
 
-  if (st.state == MPD_STATE_PLAY &&
-    (previous_state != MPD_STATE_PLAY ||
-    elapsed_moved(expected, st.elapsed_ms)))
-    elapsed_settling_until = elapsed_synced_at + ELAPSED_SETTLE_FOR_MS;
+  if (st.state == MPD_STATE_PLAY && previous_state != MPD_STATE_PLAY)
+    mpd_arm_settle();
 
   if (st.song_id != previous_song_id)
     refresh_song_tags();
+}
+
+void
+mpd_refresh_status(void) {
+  struct mpd_status *status;
+  enum mpd_state previous_state;
+  int previous_song_id;
+
+  if (mpd == NULL)
+    return;
+
+  previous_song_id = st.song_id;
+  previous_state = st.state;
+
+  status = mpd_run_status(mpd);
+  if (status == NULL) {
+    clear_status();
+    check_conn(mpd);
+    return;
+  }
+
+  apply_status(status, previous_state, previous_song_id);
+}
+
+/* the send half. The write is small enough not to block even when mpd is
+ * mid stall, the reply gets picked up by mpd_collect_status() once poll()
+ * says the socket has it */
+void
+mpd_request_status(void) {
+  if (mpd_stat == NULL || status_in_flight)
+    return;
+
+  if (!mpd_send_status(mpd_stat)) {
+    check_conn(mpd_stat);
+    return;
+  }
+  status_in_flight = true;
+}
+
+int
+mpd_status_fd(void) {
+  return (mpd_stat != NULL && status_in_flight) ?
+    mpd_connection_get_fd(mpd_stat) : -1;
+}
+
+/* the recv half. Only call this once poll() reports the fd readable. Like
+ * mpd_drain_events() on the idle connection it assumes a readable socket
+ * holds the whole reply, which holds for something this small */
+void
+mpd_collect_status(void) {
+  struct mpd_status *status;
+  enum mpd_state previous_state;
+  int previous_song_id;
+
+  if (mpd_stat == NULL || !status_in_flight)
+    return;
+
+  status_in_flight = false;
+  previous_song_id = st.song_id;
+  previous_state = st.state;
+
+  status = mpd_recv_status(mpd_stat);
+  if (status == NULL) {
+    check_conn(mpd_stat);
+    return;
+  }
+
+  if (!mpd_response_finish(mpd_stat) && !check_conn(mpd_stat)) {
+    mpd_status_free(status);
+    return;
+  }
+
+  apply_status(status, previous_state, previous_song_id);
+}
+
+void
+mpd_arm_settle(void) {
+  elapsed_settling_until = mono_ms() + ELAPSED_SETTLE_FOR_MS;
 }
 
 void
@@ -873,7 +949,7 @@ mpd_resync_elapsed(void) {
   if (now - elapsed_synced_at < interval)
     return;
 
-  mpd_refresh_status();
+  mpd_request_status();
 }
 
 bool
@@ -893,7 +969,8 @@ mpd_error(void) {
 
 static void
 resync_after_move(void) {
-  mpd_refresh_status();
+  mpd_arm_settle();
+  mpd_request_status();
 }
 
 void
@@ -1135,7 +1212,8 @@ clear_queue(const Arg *arg) {
     return;
 
   mpd_run_clear(mpd);
-  check_conn(mpd);
+  if (check_conn(mpd))
+    mpd_invalidate_queue();
 }
 
 bool
