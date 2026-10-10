@@ -72,6 +72,13 @@ mono_ms(void) {
 #define ELAPSED_SETTLE_FOR_MS 2000
 #define ELAPSED_JUMP_MS 100
 
+/* mpd reports where it has handed audio to the output, which runs ahead of
+ * what is actually heard by however much the output buffers. Everything that
+ * times against the song (lyrics, sync stamps) wants the audible position, so
+ * get_elapsed_ms() trails mpd by this much while playing. Measured against
+ * other players on a pipewire output, see if this is any better */
+#define OUTPUT_LATENCY_MS 700
+
 static unsigned long elapsed_synced_at;
 static unsigned long elapsed_settling_until;
 
@@ -109,6 +116,7 @@ mpd_server_error_name(enum mpd_server_error error) {
 }
 
 static bool check_conn(struct mpd_connection *conn);
+static unsigned mpd_position_ms(void);
 
 static void
 set_error(const char *msg) {
@@ -826,7 +834,7 @@ mpd_refresh_status(void) {
 
   previous_song_id = st.song_id;
   previous_state = st.state;
-  expected = get_elapsed_ms();
+  expected = mpd_position_ms();
 
   status = mpd_run_status(mpd);
   if (status == NULL) {
@@ -1170,8 +1178,8 @@ get_consume(void) {
   return st.consume;
 }
 
-unsigned
-get_elapsed_ms(void) {
+static unsigned
+mpd_position_ms(void) {
   unsigned long elapsed, total_ms;
 
   if (st.state != MPD_STATE_PLAY)
@@ -1182,6 +1190,15 @@ get_elapsed_ms(void) {
   if (total_ms && elapsed > total_ms)
     elapsed = total_ms;
   return (unsigned)elapsed;
+}
+
+unsigned
+get_elapsed_ms(void) {
+  unsigned pos = mpd_position_ms();
+
+  if (st.state != MPD_STATE_PLAY)
+    return pos;
+  return pos > OUTPUT_LATENCY_MS ? pos - OUTPUT_LATENCY_MS : 0;
 }
 
 unsigned
