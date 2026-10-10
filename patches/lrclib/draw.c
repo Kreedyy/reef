@@ -10,8 +10,8 @@
 
 static bool insert_mode_active = false;
 
-#define SYNC_LINE_MAX 75
-#define SYNC_MAX_LINES 75
+#define SYNC_LINE_MAX 150
+#define SYNC_MAX_LINES 150
 
 typedef struct {
   long time_ms;
