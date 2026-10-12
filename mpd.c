@@ -1,4 +1,3 @@
-
 /* https://www.musicpd.org/doc/libmpdclient/files.html */
 
 #include <mpd/client.h>
@@ -77,7 +76,7 @@ mono_ms(void) {
  * times against the song (lyrics, sync stamps) wants the audible position, so
  * get_elapsed_ms() trails mpd by this much while playing. Measured against
  * other players on a pipewire output, see if this is any better */
-#define OUTPUT_LATENCY_MS 750
+#define OUTPUT_LATENCY_MS 675
 
 static unsigned long elapsed_synced_at;
 static unsigned long elapsed_settling_until;
